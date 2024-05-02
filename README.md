@@ -1,2 +1,4 @@
 # smartplug-energy-controller
-Turning smartplug on/off depending on current electricity consumption
+
+A microservice to turn a smartplug on/off depending on current electricity consumption.
+

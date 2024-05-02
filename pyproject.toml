@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "smartplug_energy_controller"
+version = "0.0.1"
+description = "Turning Tapo smartplug on/off depending on current electricity consumption"
+authors = ["Heiko Bauer <heiko_bauer@icloud.com>"]
+repository = "https://github.com/die-bauerei/smartplug-energy-controller"
+readme = "README.md"
+packages = [
+    {include = "smartplug_energy_controller"},
+]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+python-dotenv = "^1.0.0"
+fastapi = "^0.110.0"
+uvicorn = "^0.28.0"
+plugp100 = "^5.1.3"
+
+[tool.poetry.group.dev.dependencies]
+pydantic = "^2.4.1"
+mypy = "^1.5.1"
+
+[build-system]
+requires = ["poetry>=1.0.0"]
+build-backend = "poetry.masonry.api"
