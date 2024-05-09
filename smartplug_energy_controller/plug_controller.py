@@ -7,6 +7,7 @@ from plugp100.common.credentials import AuthCredential
 from plugp100.new.device_factory import connect, DeviceConnectConfiguration
 from plugp100.new.tapoplug import TapoPlug
 
+# TODO: use a redis timeseries db: https://redis.io/docs/latest/develop/data-types/timeseries/
 def _manage_rolling_list(list : List[Any], max_value_count : int, new_end_value : Any) -> List[Any]:
     if len(list) < max_value_count:
         return list+[new_end_value]
@@ -17,7 +18,7 @@ class PlugController(ABC):
     def __init__(self, logger : Logger, watt_consumption_eval_count : int, expected_watt_consumption : float) -> None:
         self._logger=logger
         self._watt_consumption_eval_count=watt_consumption_eval_count
-        assert expected_watt_consumption >= 10
+        assert expected_watt_consumption >= 1
         self._expected_watt_consumption=expected_watt_consumption
         self._watt_consumption_values : List[float] = []
 
@@ -49,7 +50,7 @@ class PlugController(ABC):
 
             await self.update()
             if len(self._watt_consumption_values) == self._watt_consumption_eval_count:
-                consumption_threshold=self._expected_watt_consumption if self.is_on() else 10
+                consumption_threshold=self._expected_watt_consumption if self.is_on() else 1
                 values_less_threshold=[value for value in self._watt_consumption_values if value < consumption_threshold]
                 if len(values_less_threshold) > self._watt_consumption_eval_count/2:
                     await self.turn_on()

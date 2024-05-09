@@ -9,7 +9,7 @@
             "type": "python",
             "request": "launch",
             "module": "uvicorn",
-            "args": ["smartplug_energy_controller.app:app", "--reload", "--dotenv_path", "${workspaceFolder}/.env", "-vv"],
+            "args": ["smartplug_energy_controller.app:app", "--reload"],
             "justMyCode": false
         },
         {
@@ -18,7 +18,9 @@
             "request": "launch",
             "program": "${workspaceFolder}/smartplug_energy_controller/app.py",
             "console": "integratedTerminal",
-            "args": ["--dotenv_path", "${workspaceFolder}/.env", "-vv"],
+            "env": {
+                "LOG_LEVEL": "20"
+            },
             "justMyCode": false
         }
     ]

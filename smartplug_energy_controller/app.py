@@ -1,14 +1,25 @@
 import logging
-import argparse
-import os
 import uvicorn
+import os
+
+from dotenv import load_dotenv
+from pathlib import Path
+root_path = str( Path(__file__).parent.absolute() )
 
 from fastapi import FastAPI, Request
-from pathlib import Path
 from typing import Union
-from dotenv import load_dotenv
+from pydantic_settings import BaseSettings
 
 from smartplug_energy_controller.plug_controller import TapoPlugController
+
+class Settings(BaseSettings):
+    tapo_control_user: str
+    tapo_control_passwd: str
+    tapo_plug_ip: str
+    eval_count: int = 10 # Expected consumption value in Watt of consumer(s) being plugged into the Tapo Plug
+    expected_consumption: float = 100 # Expected consumption value in Watt of consumer(s) being plugged into the Tapo Plug
+    log_file: Union[str, None] = None # Write logging to this file instead of to stdout
+    log_level: int = logging.INFO
 
 def create_logger(file : Union[str, None]) -> logging.Logger:
     logger = logging.getLogger('smartplug-energy-controller')
@@ -18,38 +29,16 @@ def create_logger(file : Union[str, None]) -> logging.Logger:
     logger.addHandler(log_handler)
     return logger
 
-def log_level_from_arg(verbosity_count : int) -> int:
-    if verbosity_count == 0:
-        return logging.ERROR
-    if verbosity_count == 1:
-        return logging.WARN
-    if verbosity_count == 2:
-        return logging.INFO
-    return logging.DEBUG
+if os.path.exists(f"{root_path}/.env"):
+    load_dotenv(f"{root_path}/.env")
 
-def create_args_parser() -> argparse.ArgumentParser:
-    parser=argparse.ArgumentParser(description=f"Turning off/on Tapo Plug based on watt consumption.")
-    parser.add_argument("--dotenv_path", type=Path, required=False, help=f"Provide the required environment variables in this .env file \
-                        or by any other means (e.g. in your ~/.profile)")
-    parser.add_argument("--eval_count", type=int, required=False, default=10, 
-                        help="Consider this number of watt consumption values for evaluation")
-    parser.add_argument("--expected_consumption", type=float, required=False, default=10, 
-                        help="Expected consumption value in Watt of consumer(s) being plugeed into the Tapo Plug")
-    parser.add_argument("--logfile", type=Path, required=False, help="Write logging to this file instead of to stdout")
-    parser.add_argument('-v', '--verbose', action='count', default=0)
-    return parser
-
-parser=create_args_parser()
-args = parser.parse_args()
-if args.dotenv_path:
-    load_dotenv(dotenv_path=args.dotenv_path)
-logger=create_logger(args.logfile)
+settings = Settings()
+logger=create_logger(settings.log_file)
 logger.setLevel(logging.INFO)
 logger.info(f"Starting smartplug-energy-controller")
-logger.setLevel(log_level_from_arg(args.verbose))
-controller=TapoPlugController(logger, args.eval_count, args.expected_consumption, os.getenv('TAPO_CONTROL_USER', default=''), 
-                            os.getenv('TAPO_CONTROL_PASSWD', default=''), os.getenv('TAPO_PLUG_IP', default=''))
-
+logger.setLevel(settings.log_level)
+controller=TapoPlugController(logger, settings.eval_count, settings.expected_consumption, 
+                              settings.tapo_control_user, settings.tapo_control_passwd, settings.tapo_plug_ip)
 app = FastAPI()
 
 @app.get("/")

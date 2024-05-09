@@ -29,11 +29,18 @@ python3 -m pip install --upgrade pip setuptools
 ```bash
 pip install smartplug-energy-controller
 ```
-6. Provide environment variables. You can e.g. pass a .env file to smartplug-energy-controller via the option *--dotenv_path*. Or provide them by any other means (e.g. in your ~/.profile).
+6. Provide environment variables (e.g. in your ~/.profile).
 ```bash
 TAPO_PLUG_IP='192.168.x.x'
 TAPO_CONTROL_USER='your_user'
 TAPO_CONTROL_PASSWD='your_passwd'
+
+# Following values can be considered as parameters, but have to be provided as env variables 
+# (see: https://fastapi.tiangolo.com/advanced/settings/#create-the-settings-object)
+EVAL_COUNT=10
+EXPECTED_CONSUMPTION=100
+LOG_FILE='path_to_file'
+LOG_LEVEL=20
 ```
 
 ## Autostart after reboot and on failure ##
@@ -51,7 +58,11 @@ Group=ubuntu
 UMask=002
 Restart=on-failure
 RestartSec=5s
-ExecStart=/usr/bin/bash -lc "source /home/ubuntu/smart_meter_py_env/bin/activate && python /home/ubuntu/smart_meter_py_env/lib/python3.11/site-packages/smartplug-energy-controller/app.py --logfile /home/ubuntu/plug_controller.log -vv > /dev/null"
+Environment="EVAL_COUNT=10"
+Environment="EXPECTED_CONSUMPTION=100"
+Environment="LOG_FILE=/home/ubuntu/plug_controller.log"
+Environment="LOG_LEVEL=20"
+ExecStart=/usr/bin/bash -lc "source /home/ubuntu/smart_meter_py_env/bin/activate && uvicorn smartplug_energy_controller.app:app > /dev/null"
 
 [Install]
 WantedBy=multi-user.target
