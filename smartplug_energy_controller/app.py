@@ -16,9 +16,16 @@ class Settings(BaseSettings):
     tapo_control_user: str
     tapo_control_passwd: str
     tapo_plug_ip: str
-    eval_count: int = 10 # Expected consumption value in Watt of consumer(s) being plugged into the Tapo Plug
-    expected_consumption: float = 100 # Expected consumption value in Watt of consumer(s) being plugged into the Tapo Plug
-    log_file: Union[str, None] = None # Write logging to this file instead of to stdout
+    # Expected consumption value in Watt of consumer(s) being plugged into the Tapo Plug
+    eval_count: int = 10 
+    # Expected consumption value in Watt of consumer(s) being plugged into the Tapo Plug
+    expected_consumption: float = 200 
+    # Efficiency of the consumer(s) being plugged into the Tapo Plug (0 < x < 1)
+    # 0 means that the plug should be turned on only when no energy has to be obtained from the provider. 
+    # 1 means that the plug should be turned on when the the obtained energy from the provider is equal to the expected consumption.
+    consumer_efficiency: float = 0.5 
+    # Write logging to this file instead of to stdout
+    log_file: Union[str, None] = None 
     log_level: int = logging.INFO
 
 def create_logger(file : Union[str, None]) -> logging.Logger:
@@ -37,7 +44,7 @@ logger=create_logger(settings.log_file)
 logger.setLevel(logging.INFO)
 logger.info(f"Starting smartplug-energy-controller")
 logger.setLevel(settings.log_level)
-controller=TapoPlugController(logger, settings.eval_count, settings.expected_consumption, 
+controller=TapoPlugController(logger, settings.eval_count, settings.expected_consumption, settings.consumer_efficiency,
                               settings.tapo_control_user, settings.tapo_control_passwd, settings.tapo_plug_ip)
 app = FastAPI()
 

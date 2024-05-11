@@ -9,16 +9,20 @@ from plugp100.new.tapoplug import TapoPlug
 
 # TODO: use a redis timeseries db: https://redis.io/docs/latest/develop/data-types/timeseries/
 def _manage_rolling_list(list : List[Any], max_value_count : int, new_end_value : Any) -> List[Any]:
-    if len(list) < max_value_count:
+    if len(list) == 0:
+        return [new_end_value]*max_value_count
+    elif len(list) < max_value_count:
         return list+[new_end_value]
     else:
         return list[1:]+[new_end_value]
 
 class PlugController(ABC):
-    def __init__(self, logger : Logger, watt_consumption_eval_count : int, expected_watt_consumption : float) -> None:
+    def __init__(self, logger : Logger, watt_consumption_eval_count : int, expected_watt_consumption : float, consumer_efficiency : float) -> None:
         self._logger=logger
         self._watt_consumption_eval_count=watt_consumption_eval_count
         assert expected_watt_consumption >= 1
+        self._consumer_efficiency=consumer_efficiency
+        assert self._consumer_efficiency > 0 and self._consumer_efficiency < 1
         self._expected_watt_consumption=expected_watt_consumption
         self._watt_consumption_values : List[float] = []
 
@@ -50,8 +54,8 @@ class PlugController(ABC):
 
             await self.update()
             if len(self._watt_consumption_values) == self._watt_consumption_eval_count:
-                consumption_threshold=self._expected_watt_consumption if self.is_on() else 1
-                values_less_threshold=[value for value in self._watt_consumption_values if value < consumption_threshold]
+                obtained_from_provider_threshold=self._expected_watt_consumption*self._consumer_efficiency if await self.is_on() else 1
+                values_less_threshold=[value for value in self._watt_consumption_values if value < obtained_from_provider_threshold]
                 if len(values_less_threshold) > self._watt_consumption_eval_count/2:
                     await self.turn_on()
                 else:
@@ -63,9 +67,9 @@ class PlugController(ABC):
 
 class TapoPlugController(PlugController):
 
-    def __init__(self, logger : Logger, watt_consumption_eval_count : int, expected_watt_consumption : float,
+    def __init__(self, logger : Logger, watt_consumption_eval_count : int, expected_watt_consumption : float,  consumer_efficiency : float,
                 tapo_user : str, tapo_passwd : str, tapo_plug_ip : str) -> None:
-        super().__init__(logger, watt_consumption_eval_count, expected_watt_consumption)
+        super().__init__(logger, watt_consumption_eval_count, expected_watt_consumption, consumer_efficiency)
         self._tapo_user=tapo_user
         self._tapo_passwd=tapo_passwd
         self._tapo_plug_ip=tapo_plug_ip

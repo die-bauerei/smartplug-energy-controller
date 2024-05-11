@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 class PlugControllerMock(PlugController):
     def __init__(self, logger) -> None:
-        super().__init__(logger, watt_consumption_eval_count=4, expected_watt_consumption=100)
+        super().__init__(logger, watt_consumption_eval_count=4, expected_watt_consumption=200, consumer_efficiency=0.5)
         self._is_on = False
 
     def reset(self) -> None:
@@ -33,20 +33,16 @@ class TestPlugController(unittest.IsolatedAsyncioTestCase):
         # plug is off and consumption low (< 10)
         controller=PlugControllerMock(logger)
         await controller.add_watt_consumption(0)
-        self.assertFalse(await controller.is_on())
-        await controller.add_watt_consumption(5)
-        await controller.add_watt_consumption(2)
-        await controller.add_watt_consumption(0)
         self.assertTrue(await controller.is_on())
 
-        # plug is on and consumption increases a bit but is still < expected_watt_consumption
+        # plug is on and consumption increases a bit but is still < expected_watt_consumption*consumer_efficiency
         await controller.add_watt_consumption(50)
         await controller.add_watt_consumption(60)
         await controller.add_watt_consumption(70)
         await controller.add_watt_consumption(80)
         self.assertTrue(await controller.is_on())
 
-        # plug should be turned off when consumption increases to much (> expected_watt_consumption)
+        # plug should be turned off when consumption increases to much (> expected_watt_consumption*consumer_efficiency)
         await controller.add_watt_consumption(110)
         self.assertTrue(await controller.is_on())
         await controller.add_watt_consumption(120)
