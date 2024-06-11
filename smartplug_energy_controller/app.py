@@ -13,6 +13,8 @@ from pydantic_settings import BaseSettings
 from smartplug_energy_controller.plug_controller import TapoPlugController
 
 class Settings(BaseSettings):
+    redis_url : str
+    fastapi_url : str
     tapo_control_user: str
     tapo_control_passwd: str
     tapo_plug_ip: str
@@ -45,8 +47,10 @@ logger.setLevel(logging.INFO)
 logger.info(f"Starting smartplug-energy-controller")
 logger.setLevel(settings.log_level)
 controller=TapoPlugController(logger, settings.eval_count, settings.expected_consumption, settings.consumer_efficiency,
-                              settings.tapo_control_user, settings.tapo_control_passwd, settings.tapo_plug_ip)
+                              settings.tapo_control_user, settings.tapo_control_passwd, settings.tapo_plug_ip, settings.redis_url)
 app = FastAPI()
+
+
 
 @app.get("/")
 async def root(request: Request):

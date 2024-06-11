@@ -1,15 +1,22 @@
 import logging
 import sys
 import unittest
+import os
+
+from dotenv import load_dotenv
+from pathlib import Path
+test_path = str( Path(__file__).parent.absolute() )
 
 from smartplug_energy_controller.plug_controller import PlugController
 
 logging.basicConfig(stream=sys.stdout, level=logging.ERROR)
 logger = logging.getLogger(__name__)
 
+# Mock class for PlugController. Run "docker run -d --name redis-server -p 6379:6379 redis" before running this test.
 class PlugControllerMock(PlugController):
     def __init__(self, logger) -> None:
-        super().__init__(logger, watt_consumption_eval_count=4, expected_watt_consumption=200, consumer_efficiency=0.5)
+        super().__init__(logger, watt_consumption_eval_count=4, expected_watt_consumption=200, consumer_efficiency=0.5,
+                         redis_url=os.getenv("REDIS_URL", "redis://localhost:6379"))
         self._is_on = False
 
     def reset(self) -> None:
@@ -51,6 +58,9 @@ class TestPlugController(unittest.IsolatedAsyncioTestCase):
         
 if __name__ == '__main__':
     try:
+        if os.path.exists(f"{test_path}/../.env"):
+            load_dotenv(f"{test_path}/../.env")
+
         unittest.main()
     except Exception as e:
         logger.exception("Caught Exception: " + str(e))
