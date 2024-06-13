@@ -1,10 +1,5 @@
 name: Run Python Unittests
 
-env:
-  TAPO_CONTROL_USER: 'not_relevant'
-  TAPO_CONTROL_PASSWD: 'not_relevant'
-  TAPO_PLUG_IP: 'not_relevant'
-
 on:
   push:
   workflow_dispatch:

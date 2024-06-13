@@ -4,13 +4,16 @@ import unittest
 from datetime import datetime, timedelta
 
 from smartplug_energy_controller.plug_controller import PlugController
+from smartplug_energy_controller.config import SmartPlugConfig
 
 logging.basicConfig(stream=sys.stdout, level=logging.ERROR)
 logger = logging.getLogger(__name__)
 
 class PlugControllerMock(PlugController):
     def __init__(self, logger) -> None:
-        super().__init__(logger, eval_time_in_min=4, expected_watt_consumption=200, consumer_efficiency=0.5)
+        cfg=SmartPlugConfig(id='test_controller', auth_user='test', auth_passwd='test', 
+                            expected_consumption_in_watt=200, consumer_efficiency=0.5, eval_time_in_min=4)
+        super().__init__(logger, cfg)
         self._is_on = False
 
     def reset(self) -> None:

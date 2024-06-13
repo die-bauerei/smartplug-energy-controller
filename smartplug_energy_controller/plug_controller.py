@@ -10,18 +10,18 @@ from plugp100.new.device_factory import connect, DeviceConnectConfiguration
 from plugp100.new.tapoplug import TapoPlug
 
 from .utils import *
+from .config import SmartPlugConfig
 
 class PlugController(ABC):
-    def __init__(self, logger : Logger, eval_time_in_min : int, expected_watt_consumption : float, consumer_efficiency : float) -> None:
+    def __init__(self, logger : Logger, plug_cfg : SmartPlugConfig) -> None:
         self._logger=logger
-        assert eval_time_in_min > 0
+        assert plug_cfg.eval_time_in_min > 0
         # Add a dummy value to the rolling values to assure valid state at the beginning
-        self._rolling_values=RollingValues(timedelta(minutes=eval_time_in_min))
+        self._rolling_values=RollingValues(timedelta(minutes=plug_cfg.eval_time_in_min))
         self._rolling_values.add(ValueEntry(sys.float_info.max, datetime.now()))
-        assert expected_watt_consumption >= 1
-        self._consumer_efficiency=consumer_efficiency
-        assert self._consumer_efficiency > 0 and self._consumer_efficiency < 1
-        self._expected_watt_consumption=expected_watt_consumption
+        assert plug_cfg.expected_consumption_in_watt >= 1
+        assert plug_cfg.consumer_efficiency > 0 and plug_cfg.consumer_efficiency < 1
+        self._cfg=plug_cfg
         self._watt_consumption_values : List[float] = []
 
     @abstractmethod
@@ -49,7 +49,7 @@ class PlugController(ABC):
             self._rolling_values.add(ValueEntry(value, timestamp if timestamp else datetime.now()))
             await self.update()
             if len(self._rolling_values) > 1:
-                obtained_from_provider_threshold=self._expected_watt_consumption*self._consumer_efficiency if await self.is_on() else 1
+                obtained_from_provider_threshold=self._cfg.expected_consumption_in_watt*self._cfg.consumer_efficiency if await self.is_on() else 1
                 ratio=self._rolling_values.ratio(obtained_from_provider_threshold)
                 await self.turn_on() if ratio.less_threshold_ratio > 0.5 else await self.turn_off()
             else:
@@ -60,22 +60,13 @@ class PlugController(ABC):
             self._logger.warning("About to reset controller now.")
             self.reset()
 
-class OpenHabPlugController(PlugController):
-    def __init__(self, logger: Logger, eval_time_in_min : int, expected_watt_consumption: float, consumer_efficiency: float,
-                 oh_user : str, oh_passwd : str, oh_switch_item_url : str) -> None:
-        super().__init__(logger, eval_time_in_min, expected_watt_consumption, consumer_efficiency)
-
 class TapoPlugController(PlugController):
 
-    def __init__(self, logger : Logger, eval_time_in_min : int, expected_watt_consumption : float,  consumer_efficiency : float,
-                tapo_user : str, tapo_passwd : str, tapo_plug_ip : str) -> None:
-        super().__init__(logger, eval_time_in_min, expected_watt_consumption, consumer_efficiency)
-        self._tapo_user=tapo_user
-        self._tapo_passwd=tapo_passwd
-        self._tapo_plug_ip=tapo_plug_ip
-        assert self._tapo_user != ''
-        assert self._tapo_passwd != ''
-        assert self._tapo_plug_ip != ''
+    def __init__(self, logger : Logger, plug_cfg : SmartPlugConfig) -> None:
+        super().__init__(logger, plug_cfg)
+        assert self._cfg.id != ''
+        assert self._cfg.auth_user != ''
+        assert self._cfg.auth_passwd != ''
         self._plug : Optional[TapoPlug] = None
 
     def reset(self) -> None:
@@ -83,9 +74,9 @@ class TapoPlugController(PlugController):
 
     async def update(self) -> None:
         if self._plug is None:
-            credentials = AuthCredential(self._tapo_user, self._tapo_passwd)
+            credentials = AuthCredential(self._cfg.auth_user, self._cfg.auth_passwd)
             device_configuration = DeviceConnectConfiguration(
-                host=self._tapo_plug_ip,
+                host=self._cfg.id,
                 credentials=credentials
             )
             self._plug = await connect(device_configuration) # type: ignore

@@ -31,18 +31,11 @@ pip install smartplug-energy-controller
 ```
 6. Provide environment variables (e.g. in your ~/.profile).
 ```bash
-TAPO_PLUG_IP='192.168.x.x'
-TAPO_CONTROL_USER='your_user'
-TAPO_CONTROL_PASSWD='your_passwd'
-
-# Following values can be considered as parameters, but have to be provided as env variables 
-# (see: https://fastapi.tiangolo.com/advanced/settings/#create-the-settings-object)
-EVAL_TIME_IN_MIN=10
-EXPECTED_CONSUMPTION=200
-CONSUMER_EFFICIENCY=0.5
-LOG_FILE='path_to_file'
-LOG_LEVEL=20
+CONFIG_PATH=full/path/to/config.yml
 ```
+
+## Configuration ##
+Everything is configured in the respective .yml file. See https://github.com/die-bauerei/smartplug-energy-controller/blob/main/tests/data/config.example.yml 
 
 ## Autostart after reboot and on failure ##
 Create a systemd service by opening the file */etc/systemd/system/smartplug_energy_controller.service* and copy paste the following contents. Replace User/Group/ExecStart accordingly. 
@@ -59,11 +52,7 @@ Group=ubuntu
 UMask=002
 Restart=on-failure
 RestartSec=5s
-Environment="EVAL_TIME_IN_MIN=10"
-Environment="EXPECTED_CONSUMPTION=200"
-Environment="CONSUMER_EFFICIENCY=0.5"
-Environment="LOG_FILE=/home/ubuntu/plug_controller.log"
-Environment="LOG_LEVEL=20"
+Environment="CONFIG_PATH=full/path/to/config.yml"
 ExecStart=/usr/bin/bash -lc "source /home/ubuntu/smart_meter_py_env/bin/activate && uvicorn --host 0.0.0.0 --port 8000 smartplug_energy_controller.app:app > /dev/null"
 
 [Install]
