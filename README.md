@@ -37,7 +37,7 @@ TAPO_CONTROL_PASSWD='your_passwd'
 
 # Following values can be considered as parameters, but have to be provided as env variables 
 # (see: https://fastapi.tiangolo.com/advanced/settings/#create-the-settings-object)
-EVAL_COUNT=10
+EVAL_TIME_IN_MIN=10
 EXPECTED_CONSUMPTION=200
 CONSUMER_EFFICIENCY=0.5
 LOG_FILE='path_to_file'
@@ -59,7 +59,7 @@ Group=ubuntu
 UMask=002
 Restart=on-failure
 RestartSec=5s
-Environment="EVAL_COUNT=10"
+Environment="EVAL_TIME_IN_MIN=10"
 Environment="EXPECTED_CONSUMPTION=200"
 Environment="CONSUMER_EFFICIENCY=0.5"
 Environment="LOG_FILE=/home/ubuntu/plug_controller.log"

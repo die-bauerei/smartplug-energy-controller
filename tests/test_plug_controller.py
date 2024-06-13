@@ -1,6 +1,7 @@
 import logging
 import sys
 import unittest
+from datetime import datetime, timedelta
 
 from smartplug_energy_controller.plug_controller import PlugController
 
@@ -9,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 class PlugControllerMock(PlugController):
     def __init__(self, logger) -> None:
-        super().__init__(logger, watt_consumption_eval_count=4, expected_watt_consumption=200, consumer_efficiency=0.5)
+        super().__init__(logger, eval_time_in_min=4, expected_watt_consumption=200, consumer_efficiency=0.5)
         self._is_on = False
 
     def reset(self) -> None:
@@ -30,23 +31,25 @@ class PlugControllerMock(PlugController):
 class TestPlugController(unittest.IsolatedAsyncioTestCase):
 
     async def test_consumption(self) -> None:
+        now = datetime.now()
+
         # plug is off and consumption low (< 10)
         controller=PlugControllerMock(logger)
-        await controller.add_watt_consumption(0)
+        await controller.add_obtained_watt_from_provider(0, now+timedelta(minutes=1))
         self.assertTrue(await controller.is_on())
 
         # plug is on and consumption increases a bit but is still < expected_watt_consumption*consumer_efficiency
-        await controller.add_watt_consumption(50)
-        await controller.add_watt_consumption(60)
-        await controller.add_watt_consumption(70)
-        await controller.add_watt_consumption(80)
+        await controller.add_obtained_watt_from_provider(50, now+timedelta(minutes=2))
+        await controller.add_obtained_watt_from_provider(60, now+timedelta(minutes=3))
+        await controller.add_obtained_watt_from_provider(70, now+timedelta(minutes=4))
+        await controller.add_obtained_watt_from_provider(80, now+timedelta(minutes=5))
         self.assertTrue(await controller.is_on())
 
         # plug should be turned off when consumption increases to much (> expected_watt_consumption*consumer_efficiency)
-        await controller.add_watt_consumption(110)
+        await controller.add_obtained_watt_from_provider(110, now+timedelta(minutes=6))
         self.assertTrue(await controller.is_on())
-        await controller.add_watt_consumption(120)
-        await controller.add_watt_consumption(130)
+        await controller.add_obtained_watt_from_provider(120, now+timedelta(minutes=7))
+        await controller.add_obtained_watt_from_provider(130, now+timedelta(minutes=8))
         self.assertFalse(await controller.is_on())
         
 if __name__ == '__main__':

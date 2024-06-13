@@ -16,8 +16,8 @@ class Settings(BaseSettings):
     tapo_control_user: str
     tapo_control_passwd: str
     tapo_plug_ip: str
-    # Expected consumption value in Watt of consumer(s) being plugged into the Tapo Plug
-    eval_count: int = 10 
+    # Time in minutes for which the energy consumption should be evaluated
+    eval_time_in_min: int = 10 
     # Expected consumption value in Watt of consumer(s) being plugged into the Tapo Plug
     expected_consumption: float = 200 
     # Efficiency of the consumer(s) being plugged into the Tapo Plug (0 < x < 1)
@@ -39,12 +39,18 @@ def create_logger(file : Union[str, None]) -> logging.Logger:
 if os.path.exists(f"{root_path}/.env"):
     load_dotenv(f"{root_path}/.env")
 
+try:
+    import importlib.metadata
+    __version__ = importlib.metadata.version('smartplug_energy_controller')
+except:
+    __version__ = 'development'
+
 settings = Settings()
 logger=create_logger(settings.log_file)
 logger.setLevel(logging.INFO)
-logger.info(f"Starting smartplug-energy-controller")
+logger.info(f"Starting smartplug-energy-controller version {__version__}")
 logger.setLevel(settings.log_level)
-controller=TapoPlugController(logger, settings.eval_count, settings.expected_consumption, settings.consumer_efficiency,
+controller=TapoPlugController(logger, settings.eval_time_in_min, settings.expected_consumption, settings.consumer_efficiency,
                               settings.tapo_control_user, settings.tapo_control_passwd, settings.tapo_plug_ip)
 app = FastAPI()
 
@@ -52,10 +58,10 @@ app = FastAPI()
 async def root(request: Request):
     return {"message": "Hallo from Tapo Plug Controller"}
 
-@app.post("/add_watt_consumption")
-async def add_watt_consumption(request: Request):
+@app.post("/add_obtained_watt_from_provider")
+async def add_obtained_watt_from_provider(request: Request):
     value = float(await request.body())
-    await controller.add_watt_consumption(value)
+    await controller.add_obtained_watt_from_provider(value)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
