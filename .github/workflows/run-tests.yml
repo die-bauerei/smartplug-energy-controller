@@ -1,8 +1,10 @@
 name: Run Python Unittests
 
 on:
-  push:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build-n-run-tests:
