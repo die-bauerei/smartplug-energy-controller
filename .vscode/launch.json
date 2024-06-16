@@ -19,7 +19,7 @@
             "program": "${workspaceFolder}/smartplug_energy_controller/app.py",
             "console": "integratedTerminal",
             "env": {
-                "LOG_LEVEL": "20"
+                "CONFIG_PATH": "${workspaceFolder}/test_config.yml"
             },
             "justMyCode": false
         }

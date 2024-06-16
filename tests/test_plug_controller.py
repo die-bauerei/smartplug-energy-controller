@@ -38,21 +38,21 @@ class TestPlugController(unittest.IsolatedAsyncioTestCase):
 
         # plug is off and consumption low (< 10)
         controller=PlugControllerMock(logger)
-        await controller.add_obtained_watt_from_provider(0, now+timedelta(minutes=1))
+        await controller.update_values(0, 200, now+timedelta(minutes=1))
         self.assertTrue(await controller.is_on())
 
         # plug is on and consumption increases a bit but is still < expected_watt_consumption*consumer_efficiency
-        await controller.add_obtained_watt_from_provider(50, now+timedelta(minutes=2))
-        await controller.add_obtained_watt_from_provider(60, now+timedelta(minutes=3))
-        await controller.add_obtained_watt_from_provider(70, now+timedelta(minutes=4))
-        await controller.add_obtained_watt_from_provider(80, now+timedelta(minutes=5))
+        await controller.update_values(50, 200, now+timedelta(minutes=2))
+        await controller.update_values(60, 200, now+timedelta(minutes=3))
+        await controller.update_values(70, 200, now+timedelta(minutes=4))
+        await controller.update_values(80, 200, now+timedelta(minutes=5))
         self.assertTrue(await controller.is_on())
 
         # plug should be turned off when consumption increases to much (> expected_watt_consumption*consumer_efficiency)
-        await controller.add_obtained_watt_from_provider(110, now+timedelta(minutes=6))
+        await controller.update_values(110, 200, now+timedelta(minutes=6))
         self.assertTrue(await controller.is_on())
-        await controller.add_obtained_watt_from_provider(120, now+timedelta(minutes=7))
-        await controller.add_obtained_watt_from_provider(130, now+timedelta(minutes=8))
+        await controller.update_values(120, 200, now+timedelta(minutes=7))
+        await controller.update_values(130, 200, now+timedelta(minutes=8))
         self.assertFalse(await controller.is_on())
         
 if __name__ == '__main__':

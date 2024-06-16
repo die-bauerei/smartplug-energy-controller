@@ -8,6 +8,7 @@ root_path = str( Path(__file__).parent.absolute() )
 
 from fastapi import FastAPI, Request
 from typing import Union
+from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 
 from smartplug_energy_controller.plug_manager import PlugManager
@@ -43,14 +44,22 @@ manager=PlugManager(logger, cfg_parser)
 
 app = FastAPI()
 
+class PlugValues(BaseModel):
+    watt_obtained_from_provider: float
+    watt_consumed_at_plug: float
+
 @app.get("/")
 async def root(request: Request):
-    return {"message": "Hallo from Tapo Plug Controller"}
+    return {"message": "Hallo from smartplug-energy-controller"}
 
-@app.post("/plug/{uuid}/add_obtained_watt_from_provider")
-async def add_obtained_watt_from_provider(uuid : str, request: Request):
-    value = float(await request.body())
-    await manager.plug(uuid).add_obtained_watt_from_provider(value)
+@app.get("/plugs/{uuid}")
+async def read_plug(uuid: str):
+    return manager.plug(uuid).state_proposal
+
+@app.put("/plugs/{uuid}")
+async def update_plug(uuid: str, plug_values: PlugValues):
+    await manager.plug(uuid).update_values(plug_values.watt_obtained_from_provider, plug_values.watt_consumed_at_plug)
+    return manager.plug(uuid).state_proposal
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

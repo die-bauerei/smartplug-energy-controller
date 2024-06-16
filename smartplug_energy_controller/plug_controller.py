@@ -3,7 +3,7 @@ import sys
 from logging import Logger
 
 from abc import ABC, abstractmethod
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 from plugp100.common.credentials import AuthCredential
 from plugp100.new.device_factory import connect, DeviceConnectConfiguration
@@ -16,13 +16,17 @@ class PlugController(ABC):
     def __init__(self, logger : Logger, plug_cfg : SmartPlugConfig) -> None:
         self._logger=logger
         assert plug_cfg.eval_time_in_min > 0
-        # Add a dummy value to the rolling values to assure valid state at the beginning
-        self._rolling_values=RollingValues(timedelta(minutes=plug_cfg.eval_time_in_min))
-        self._rolling_values.add(ValueEntry(sys.float_info.max, datetime.now()))
         assert plug_cfg.expected_consumption_in_watt >= 1
         assert plug_cfg.consumer_efficiency > 0 and plug_cfg.consumer_efficiency < 1
         self._cfg=plug_cfg
-        self._watt_consumption_values : List[float] = []
+        # Add a dummy value to the rolling values to assure valid state at the beginning
+        self._rolling_values=RollingValues(timedelta(minutes=plug_cfg.eval_time_in_min))
+        self._rolling_values.add(ValueEntry(sys.float_info.max, datetime.now()))
+        self._propose_to_turn_on=False
+
+    @property
+    def state_proposal(self):
+        return {'proposed_state': 'On'} if self._propose_to_turn_on else {'proposed_state': 'Off'}
 
     @abstractmethod
     def reset(self) -> None:
@@ -44,16 +48,23 @@ class PlugController(ABC):
     async def turn_off(self) -> None:
         pass
 
-    async def add_obtained_watt_from_provider(self, value : float, timestamp : Union[None, datetime] = None) -> None:
+    async def update_values(self, watt_obtained_from_provider: float, watt_consumed_at_plug: float, 
+                            timestamp : Union[None, datetime] = None) -> None:
         try:
-            self._rolling_values.add(ValueEntry(value, timestamp if timestamp else datetime.now()))
+            self._rolling_values.add(ValueEntry(watt_obtained_from_provider, timestamp if timestamp else datetime.now()))
             await self.update()
             if len(self._rolling_values) > 1:
-                obtained_from_provider_threshold=self._cfg.expected_consumption_in_watt*self._cfg.consumer_efficiency if await self.is_on() else 1
+                obtained_from_provider_threshold=watt_consumed_at_plug*self._cfg.consumer_efficiency if await self.is_on() else 1
                 ratio=self._rolling_values.ratio(obtained_from_provider_threshold)
-                await self.turn_on() if ratio.less_threshold_ratio > 0.5 else await self.turn_off()
+                if ratio.less_threshold_ratio > 0.5:
+                    await self.turn_on()
+                    self._propose_to_turn_on=True
+                else:
+                    await self.turn_off()
+                    self._propose_to_turn_on=False
             else:
                 self._logger.warning("Not enough values in the evaluated timeframe. Make sure to add values more frequently.")
+            self._logger.debug(f"Updated values to: watt_obtained_from_provider={watt_obtained_from_provider}, watt_consumed_at_plug={watt_consumed_at_plug}")
         except Exception as e:
             # Just log as warning since the plug could just be unconnected 
             self._logger.warning("Caught Exception while adding watt consumption: " + str(e))

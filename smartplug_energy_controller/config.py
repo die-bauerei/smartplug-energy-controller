@@ -9,7 +9,7 @@ class SmartPlugConfig():
     id : str = '' # e.g. ip-adress
     auth_user : str = '' # user to authenticate
     auth_passwd : str = '' # passwd to authenticate
-    # Expected consumption value in Watt of consumer(s) being plugged into the Tapo Plug
+    # TODO: rm this. Expected consumption value in Watt of consumer(s) being plugged into the Tapo Plug
     expected_consumption_in_watt : int = 0
     # Efficiency of the consumer(s) being plugged into the Tapo Plug (0 < x < 1)
     # 0 means that the plug should be turned on only when no energy has to be obtained from the provider. 
