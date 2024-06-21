@@ -15,12 +15,12 @@ class TestConfig(unittest.TestCase):
 
     def test_creation(self) -> None:
         parser=ConfigParser(Path(config_file))
-        self.assertEqual(parser.general, GeneralConfig(Path('test.log'), 22))
+        self.assertEqual(parser.general, GeneralConfig(Path('test.log'), 22, 11))
         self.assertEqual(parser.plug_uuids, ['5268704d-34c2-4e38-9d3f-73c4775babca', '46742b02-aabb-47a7-9207-92b7dcea4875'])
         self.assertEqual(parser.plug('5268704d-34c2-4e38-9d3f-73c4775babca'), 
-                         SmartPlugConfig('192.168.110.1', 'test_user_1', 'test_passwd_1', 111, 0.1, 11))
+                         SmartPlugConfig('192.168.110.1', 'test_user_1', 'test_passwd_1', 111, 0.1))
         self.assertEqual(parser.plug('46742b02-aabb-47a7-9207-92b7dcea4875'), 
-                         SmartPlugConfig('192.168.110.2', 'test_user_2', 'test_passwd_2', 222, 0.2, 22))
+                         SmartPlugConfig('192.168.110.2', 'test_user_2', 'test_passwd_2', 222, 0.2))
   
 if __name__ == '__main__':
     try:

@@ -1,6 +1,8 @@
 log_file : "test.log"
 log_level : 22
+eval_time_in_min : 11
 
+# NOTE: the order of the plugs define the priority (top = highest prio. bottom = lowest prio)
 smartplugs:
   5268704d-34c2-4e38-9d3f-73c4775babca:
     id : '192.168.110.1'
@@ -8,11 +10,9 @@ smartplugs:
     auth_passwd: 'test_passwd_1'
     expected_consumption_in_watt: 111
     consumer_efficiency: 0.1
-    eval_time_in_min : 11
   46742b02-aabb-47a7-9207-92b7dcea4875:
     id : '192.168.110.2'
     auth_user: 'test_user_2'
     auth_passwd: 'test_passwd_2'
     expected_consumption_in_watt: 222
     consumer_efficiency: 0.2
-    eval_time_in_min : 22

@@ -34,19 +34,22 @@ try:
 except:
     __version__ = 'development'
 
-settings = Settings()
+settings = Settings() # type: ignore
 cfg_parser = ConfigParser(settings.config_path)
 logger=create_logger(cfg_parser.general.log_file)
 logger.setLevel(logging.INFO)
 logger.info(f"Starting smartplug-energy-controller version {__version__}")
 logger.setLevel(cfg_parser.general.log_level)
-manager=PlugManager(logger, cfg_parser)
+manager=PlugManager.create(logger, cfg_parser)
 
 app = FastAPI()
 
 class PlugValues(BaseModel):
-    watt_obtained_from_provider: float
     watt_consumed_at_plug: float
+
+class SmartMeterValues(BaseModel):
+    watt_obtained_from_provider: float
+    watt_produced: Union[None, float] = None
 
 @app.get("/")
 async def root(request: Request):
@@ -54,12 +57,15 @@ async def root(request: Request):
 
 @app.get("/plugs/{uuid}")
 async def read_plug(uuid: str):
-    return manager.plug(uuid).state_proposal
+    return await manager.plug(uuid).state
 
 @app.put("/plugs/{uuid}")
 async def update_plug(uuid: str, plug_values: PlugValues):
-    await manager.plug(uuid).update_values(plug_values.watt_obtained_from_provider, plug_values.watt_consumed_at_plug)
-    return manager.plug(uuid).state_proposal
+    manager.plug(uuid).update_values(plug_values.watt_consumed_at_plug)
+
+@app.put("/smart_meter")
+async def smart_meter(smart_meter_values: SmartMeterValues):
+    await manager.add_smart_meter_values(smart_meter_values.watt_obtained_from_provider, smart_meter_values.watt_produced)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
