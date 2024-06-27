@@ -12,8 +12,8 @@ class SmartPlugConfig():
     # Expected consumption value in Watt of consumer(s) being plugged into the Plug
     expected_consumption_in_watt : int = 0
     # Efficiency of the consumer(s) being plugged into the Plug (0 < x < 1)
-    # 0 means that the plug should be turned on only when no energy has to be obtained from the provider. 
-    # 1 means that the plug should be turned on when the the obtained energy from the provider is equal to the expected consumption.
+    # 0 means that the plug should be turned on only when no additional energy has to be obtained from the provider. 
+    # 1 means that the plug should be turned on when the additional obtained energy from the provider is equal to the expected consumption.
     consumer_efficiency : float = 0
 
 @dataclass(frozen=True)

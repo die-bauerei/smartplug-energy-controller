@@ -7,7 +7,6 @@ from plugp100.common.credentials import AuthCredential
 from plugp100.new.device_factory import connect, DeviceConnectConfiguration
 from plugp100.new.tapoplug import TapoPlug
 
-from .utils import *
 from .config import SmartPlugConfig
 
 class PlugController(ABC):
@@ -47,11 +46,13 @@ class PlugController(ABC):
     async def is_on(self) -> bool:
         pass
 
-    async def turn_on(self) -> None:
+    async def turn_on(self) -> bool:
         self._propose_to_turn_on=True
+        return True
 
-    async def turn_off(self) -> None:
+    async def turn_off(self) -> bool:
         self._propose_to_turn_on=False
+        return True
 
     def update_values(self, watt_consumed_at_plug: float) -> None:
         self._watt_consumed_at_plug=watt_consumed_at_plug
@@ -93,14 +94,18 @@ class TapoPlugController(PlugController):
             # return false in case no connection can be established
             return False
 
-    async def turn_on(self) -> None:
-        await super().turn_on()
-        if not await self.is_on() and self._plug is not None:
+    async def turn_on(self) -> bool:
+        base_rc = await super().turn_on()
+        if base_rc and not await self.is_on() and self._plug is not None:
             await self._plug.turn_on()
             self._logger.info("Turned Tapo Plug on")
+            return await self.is_on()
+        return False
 
-    async def turn_off(self) -> None:
-        await super().turn_off()
-        if await self.is_on() and self._plug is not None:
+    async def turn_off(self) -> bool:
+        base_rc = await super().turn_on()
+        if base_rc and await self.is_on() and self._plug is not None:
             await self._plug.turn_off()
             self._logger.info("Turned Tapo Plug off")
+            return not await self.is_on()
+        return False

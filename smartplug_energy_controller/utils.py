@@ -4,7 +4,29 @@ from typing import List
 
 import asyncio
 
-@dataclass()
+@dataclass(frozen=True)
+class SavingFromPlug():
+    watt_value : float
+    valid_until_time : datetime
+
+class SavingsFromPlugsTurnedOff():
+    def __init__(self) -> None:
+        self._savings : List[SavingFromPlug] = []
+        self._lock : asyncio.Lock = asyncio.Lock()
+
+    async def value(self, timestamp : datetime) -> float:
+        async with self._lock:
+            if self._savings:
+                # trim list according to given timestamp
+                while self._savings[0].valid_until_time < timestamp:
+                    self._savings = self._savings[1:]
+            return sum([saving.watt_value for saving in self._savings])
+
+    async def add(self, watt_value : float, timestamp : datetime, time_delta : timedelta) -> None:
+        async with self._lock:
+            self._savings.append(SavingFromPlug(watt_value, timestamp + time_delta))
+
+@dataclass(frozen=True)
 class ValueEntry:
     value : float
     timestamp : datetime
@@ -20,11 +42,16 @@ class RollingValues:
         self._values : List[ValueEntry] = init_values.copy()
         self._lock : asyncio.Lock = asyncio.Lock()
 
-    def __len__(self) -> int:
-        return len(self._values)
+    async def value_count(self) -> int:
+        async with self._lock:
+            return len(self._values)
     
-    def __getitem__(self, index: int) -> ValueEntry:
-        return self._values[index]
+    async def __getitem__(self, index: int) -> ValueEntry:
+        async with self._lock:
+            return self._values[index]
+    
+    def time_delta(self) -> timedelta:
+        return self._time_delta
 
     async def add(self, value : ValueEntry):
         if len(self._values) != 0:
@@ -51,7 +78,7 @@ class RollingValues:
     async def mean(self) -> float:
         assert len(self._values) > 1, "Not enough values to calculate mean"
         async with self._lock:
-            # TODO: rm outliers (e.g. coffee machine has been used)
+            # TODO: rm outliers?
             weighted_sum : float = 0
             for index in range(1, len(self._values)):
                 weighted_sum+=self._values[index].value*(self._values[index].timestamp - self._values[index-1].timestamp).total_seconds()

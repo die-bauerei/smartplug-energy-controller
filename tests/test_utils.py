@@ -7,31 +7,30 @@ from smartplug_energy_controller.utils import *
 logging.basicConfig(stream=sys.stdout, level=logging.ERROR)
 logger = logging.getLogger(__name__)
 
-
 class TestRollingValues(unittest.IsolatedAsyncioTestCase):
 
     async def test_add(self) -> None:
         rolling_values = RollingValues(timedelta(minutes=10))
-        self.assertEqual(len(rolling_values), 0)
+        self.assertEqual(await rolling_values.value_count(), 0)
         now = datetime.now()
         for i in range(10):
             await rolling_values.add(ValueEntry(i, now + i*timedelta(seconds=61)))
-            self.assertEqual(len(rolling_values), i+1)
-            self.assertEqual(i, rolling_values[i].value)
+            self.assertEqual(await rolling_values.value_count(), i+1)
+            self.assertEqual(i, (await rolling_values[i]).value)
         
-        self.assertEqual(len(rolling_values), 10)
+        self.assertEqual(await rolling_values.value_count(), 10)
 
         # value count should stay at 10 because the next value extends the window_time_delta
         await rolling_values.add(ValueEntry(99, now + 10*timedelta(seconds=61)))
-        self.assertEqual(len(rolling_values), 10)
-        self.assertEqual(99, rolling_values[len(rolling_values)-1].value)
-        self.assertEqual(1, rolling_values[0].value)
+        self.assertEqual(await rolling_values.value_count(), 10)
+        self.assertEqual(99, (await rolling_values[-1]).value)
+        self.assertEqual(1, (await rolling_values[0]).value)
 
         # check the case when the value count changes (e.g. one is being added but three deleted)
         await rolling_values.add(ValueEntry(100, now + 13*timedelta(seconds=61)))
-        self.assertEqual(len(rolling_values), 8)
-        self.assertEqual(100, rolling_values[len(rolling_values)-1].value)
-        self.assertEqual(4, rolling_values[0].value)
+        self.assertEqual(await rolling_values.value_count(), 8)
+        self.assertEqual(100, (await rolling_values[-1]).value)
+        self.assertEqual(4, (await rolling_values[0]).value)
 
         # Timestamps must be in ascending order 
         with self.assertRaises(AssertionError):
