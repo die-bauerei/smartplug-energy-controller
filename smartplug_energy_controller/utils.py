@@ -16,10 +16,9 @@ class SavingsFromPlugsTurnedOff():
 
     async def value(self, timestamp : datetime) -> float:
         async with self._lock:
-            if self._savings:
-                # trim list according to given timestamp
-                while self._savings[0].valid_until_time < timestamp:
-                    self._savings = self._savings[1:]
+            # trim list according to given timestamp
+            while self._savings and self._savings[0].valid_until_time < timestamp:
+                self._savings = self._savings[1:]
             return sum([saving.watt_value for saving in self._savings])
 
     async def add(self, watt_value : float, timestamp : datetime, time_delta : timedelta) -> None:

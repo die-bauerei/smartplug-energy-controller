@@ -7,6 +7,15 @@ from smartplug_energy_controller.utils import *
 logging.basicConfig(stream=sys.stdout, level=logging.ERROR)
 logger = logging.getLogger(__name__)
 
+class TestSavingsFromPlugsTurnedOff(unittest.IsolatedAsyncioTestCase):
+    async def test_value(self) -> None:
+        savings = SavingsFromPlugsTurnedOff()
+        now = datetime.now()
+        self.assertEqual(await savings.value(now), 0)
+        await savings.add(100, now, timedelta(minutes=1))
+        self.assertEqual(await savings.value(now+timedelta(seconds=30)), 100)
+        self.assertEqual(await savings.value(now+timedelta(seconds=90)), 0)
+
 class TestRollingValues(unittest.IsolatedAsyncioTestCase):
 
     async def test_add(self) -> None:
