@@ -10,11 +10,12 @@ from .plug_controller import *
 efficiency_tolerance=0.05
 
 class PlugManager():
-    def __init__(self, logger : Logger, eval_time_in_min : int, min_expected_freq : timedelta = timedelta(seconds=90)) -> None:
+    def __init__(self, logger : Logger, eval_time_in_min : int, base_load : float = 150, min_expected_freq : timedelta = timedelta(seconds=90)) -> None:
         self._logger=logger
         # Add a dummy value to the rolling watt-obtained values to assure valid state at the beginning
         self._watt_obtained_values=RollingValues(timedelta(minutes=eval_time_in_min),
                                                  [ValueEntry(sys.float_info.max, datetime.now())])
+        self._base_load=base_load
         self._min_expected_freq=min_expected_freq
         self._watt_produced : Union[None, float] = None
         self._break_even : Union[None, float] = None
@@ -81,6 +82,7 @@ class PlugManager():
                 self._logger.warning("About to reset controller now.")
                 controller.reset()
 
+    # TODO: do all calculations in a lock?
     async def _evaluate(self, watt_produced : Union[None, float] = None) -> bool:
         if await self._watt_obtained_values.value_count() < 2:
             self._logger.error(f"Not enough values in the evaluated timeframe of {self._watt_obtained_values.time_delta()}. Make sure to add values more frequently.")
@@ -90,6 +92,7 @@ class PlugManager():
         had_overprotection = self._having_overproduction
         self._latest_mean = await self._watt_obtained_values.mean()
         self._having_overproduction = self._latest_mean < 1
+        old_break_even = self._break_even
         if not had_overprotection and self._having_overproduction:
             if watt_produced is not None and self._watt_produced is not None:
                 self._break_even = (self._watt_produced+watt_produced)/2
@@ -97,6 +100,11 @@ class PlugManager():
                 self._break_even = watt_produced
             else:
                 self._break_even = None
+            self._logger.info(f"Break-even value has been updated from {old_break_even} to {self._break_even}")
+        elif had_overprotection and self._having_overproduction and self._break_even is not None:
+            # decrease break-even value when overproduction is still present
+            self._break_even = max(self._base_load, self._break_even*0.975)
+            self._logger.info(f"Break-even value has been updated from {old_break_even} to {self._break_even}")
         self._watt_produced=watt_produced
         return True
 
