@@ -1,0 +1,37 @@
+
+levels:
+  WARNING: WARN
+
+formatters:
+  HABApp_format:
+    format: '[%(asctime)s] [%(name)25s] %(levelname)8s | %(message)s'
+
+  Frontail_format:
+    format: '%(asctime)s.%(msecs)03d [%(levelname)-5s] [%(name)-36s] - %(message)s'
+    datefmt: '%Y-%m-%d %H:%M:%S'
+
+handlers:
+  # There are several Handlers available:
+  #  - logging.handlers.RotatingFileHandler:
+  #    Will rotate when the file reaches a certain size (see python logging documentation for args)
+  #  - HABApp.core.lib.handler.MidnightRotatingFileHandler:
+  #    Will wait until the file reaches a certain size and then rotate on midnight
+  #  - More handlers:
+  #    https://docs.python.org/3/library/logging.handlers.html#rotatingfilehandler
+
+  HABApp_default:
+    class: HABApp.core.lib.handler.MidnightRotatingFileHandler
+    filename: 'HABApp.log'
+    maxBytes: 1_048_576
+    backupCount: 10
+
+    formatter: Frontail_format
+    level: WARN
+
+loggers:
+  HABApp:
+    level: WARN
+    handlers:
+      - HABApp_default
+    propagate: False
+

@@ -1,8 +1,6 @@
 import logging
 import uvicorn
-import os
 
-from dotenv import load_dotenv
 from pathlib import Path
 root_path = str( Path(__file__).parent.absolute() )
 
@@ -25,9 +23,6 @@ def create_logger(file : Union[Path, None]) -> logging.Logger:
     logger.addHandler(log_handler)
     return logger
 
-if os.path.exists(f"{root_path}/.env"):
-    load_dotenv(f"{root_path}/.env")
-
 try:
     import importlib.metadata
     __version__ = importlib.metadata.version('smartplug_energy_controller')
@@ -35,7 +30,7 @@ except:
     __version__ = 'development'
 
 settings = Settings() # type: ignore
-cfg_parser = ConfigParser(settings.config_path)
+cfg_parser = ConfigParser(settings.config_path, Path(f"{root_path}/../oh_to_smartplug_energy_controller/config.yml"))
 logger=create_logger(cfg_parser.general.log_file)
 logger.setLevel(logging.INFO)
 logger.info(f"Starting smartplug-energy-controller version {__version__}")

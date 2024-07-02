@@ -35,5 +35,14 @@
                 "hidden": true, // keep original launch order in 'run and debug' tab
             }
         },
+        {
+            "name": "Python: Debug openhab_to_smartplug_energy_controller",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/.venv/bin/habapp",
+            "console": "integratedTerminal",
+            "args": ["--config", "${workspaceFolder}/oh_to_smartplug_energy_controller"],
+            "justMyCode": false
+        },
     ]
 }

@@ -1,12 +1,13 @@
 [tool.poetry]
 name = "smartplug_energy_controller"
-version = "0.0.9"
+version = "0.0.10"
 description = "Turning smartplugs on/off depending on current electricity consumption"
 authors = ["Heiko Bauer <heiko_bauer@icloud.com>"]
 repository = "https://github.com/die-bauerei/smartplug-energy-controller"
 readme = "README.md"
 packages = [
     {include = "smartplug_energy_controller"},
+    {include = "oh_to_smartplug_energy_controller"}
 ]
 
 [tool.poetry.dependencies]
@@ -17,6 +18,7 @@ fastapi = "^0.111.0"
 pydantic-settings = "^2.2.1"
 python-dotenv = "^1.0.1"
 ruamel-yaml = "^0.18.6"
+habapp = "^24.2.0"
 
 [tool.poetry.group.dev.dependencies]
 pydantic = "^2.4.1"

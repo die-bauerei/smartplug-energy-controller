@@ -168,7 +168,7 @@ class TestPlugManager(unittest.IsolatedAsyncioTestCase):
         await self._manager.add_smart_meter_values(0, 290, now + timedelta(minutes=7))
         self.assertEqual(await self._manager._current_break_even(), (290+270)/2 - self._manager.plug('A').watt_consumed*self._manager.plug('A').consumer_efficiency)
         self.assertTrue(not await self._manager.plug('A').is_on())
-        await self._manager.add_smart_meter_values(0, 290, now + timedelta(minutes=8))
+        await self._manager.add_smart_meter_values(0, 280, now + timedelta(minutes=8))
         self.assertTrue(not await self._manager.plug('A').is_on())
         await self._manager.add_smart_meter_values(0, 310, now + timedelta(minutes=8, seconds=30))
         self.assertTrue(await self._manager.plug('A').is_on())
