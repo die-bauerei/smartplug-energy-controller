@@ -79,5 +79,37 @@ To use this service you need to get the consumption values from your smart-meter
 A possible setup could include:
 - Read data from your smart-meter and push them to openHAB:
     - https://github.com/die-bauerei/smart-meter-to-openhab
+    - https://tibber.com/de/store/produkt/pulse-ir
     - ...
 - Let openHAB send the post request to this service. 
+
+This project includes a service that performs this request by using HABApp (https://github.com/spacemanspiff2007/HABApp)
+You can start habapp by e.g.
+```bash
+HABAPP_CONFIG_FOLDER=$(source /home/ubuntu/smart_meter_py_env/bin/activate && pip show smartplug_energy_controller | grep Location | sed "s/Location: //")/oh_to_smartplug_energy_controller
+source /home/ubuntu/smart_meter_py_env/bin/activate && habapp --config $HABAPP_CONFIG_FOLDER
+```
+NOTE: Make sure to first start smartplug_energy_controller as this will setup the configuration for HABApp. 
+
+*The service expects the smartplug_energy_controller API on http://localhost:8000*
+
+Create a systemd service */etc/systemd/system/oh_to_smartplug_energy_controller.service* to setup autostart for this service as well:
+```bash
+[Unit]
+Description=Post smart meter values from openHAB to smartplug-energy-controller
+Documentation=https://github.com/die-bauerei/smartplug-energy-controller
+After=smartplug_energy_controller.service
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+UMask=002
+Restart=on-failure
+RestartSec=5s
+#Provide environment variable (e.g. in your ~/.profile). Assignment example see above
+ExecStart=/usr/bin/bash -lc "source /home/ubuntu/smart_meter_py_env/bin/activate && habapp -c $HABAPP_CONFIG_FOLDER"
+
+[Install]
+WantedBy=multi-user.target
+```

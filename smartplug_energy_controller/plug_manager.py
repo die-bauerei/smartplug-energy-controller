@@ -60,7 +60,7 @@ class PlugManager():
 
     async def _handle_turn_off_plug(self) -> None:
         assert not self._having_overproduction
-        controllers_on_count=len([controller for controller in self._controllers.values() if controller.is_on()])
+        controllers_on_count=len([controller for controller in self._controllers.values() if await controller.is_on()])
         # check plugs in reversed order (lowest prio to highest prio)
         for uuid, controller in reversed(self._controllers.items()):
             try:

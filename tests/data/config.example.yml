@@ -16,3 +16,11 @@ smartplugs:
     auth_passwd: 'test_passwd_2'
     expected_consumption_in_watt: 222
     consumer_efficiency: 0.2
+
+# This part is optional and only needed if you want to use the openhab integration
+oh_to_smartplug_energy_controller:
+  oh_url : 'http://localhost:8080'
+  oh_user : 'openhab'
+  oh_password: 'secret'
+  oh_watt_obtained_from_provider_item : 'smart_meter_overall_consumption' 
+  oh_watt_produced_item : 'system_balkonkraftwerk_now'

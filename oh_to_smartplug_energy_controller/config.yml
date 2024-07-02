@@ -1,0 +1,5 @@
+directories: {config: config, logging: log, rules: rules}
+openhab:
+  connection: {password: secret, url: http://localhost:8080, user: openhab}
+  general: {listen_only: true, wait_for_openhab: true}
+  ping: {enabled: false, interval: 10, item: HABApp_Ping}
