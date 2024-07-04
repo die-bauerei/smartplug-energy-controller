@@ -4,7 +4,8 @@ A microservice to turn a smartplug on/off depending on current electricity consu
 The intention of this service is to use all energy you produced, e.g with a balcony power plant, by e.g. loading a portable battery.
 This can be achieved by plug in your battery into a smartplug. The smartplug is turned on/off dynamically, depending on your current electricity consumption. 
 
-The service provides the post method *add_watt_consumption* with the value to be provided as a raw data string. 
+The service is especially useful when your electricity meter supports OBIS 1.8.x only (no OBIS 2.8.x).
+In such a scenario you can give this service your current electricity meter value (obtained watt from provider) and your current watt production (e.g. from a balcony power plant) and it calculates a reasonable point when to turn your smartplugs on/off.
 
 ## Installation ##
 The python package can be installed from PyPi (https://pypi.org/project/smartplug-energy-controller/)
@@ -35,7 +36,7 @@ CONFIG_PATH=full/path/to/config.yml
 ```
 
 ## Configuration ##
-Everything is configured in the respective .yml file. See https://github.com/die-bauerei/smartplug-energy-controller/blob/main/tests/data/config.example.yml 
+Everything is configured in the respective config.yml file. See https://github.com/die-bauerei/smartplug-energy-controller/blob/main/tests/data/config.example.yml 
 
 ## Autostart after reboot and on failure ##
 Create a systemd service by opening the file */etc/systemd/system/smartplug_energy_controller.service* and copy paste the following contents. Replace User/Group/ExecStart accordingly. 
@@ -73,6 +74,11 @@ sudo systemctl restart smartplug_energy_controller.service
 sudo systemctl status smartplug_energy_controller.service
 ```
 
+## Usage of Tapo Smart Plugs ##
+
+The service can control Tapo Smart Plugs via the plugp100 library (https://pypi.org/project/plugp100/).
+Have a look at the example config at https://github.com/die-bauerei/smartplug-energy-controller/blob/main/tests/data/config.example
+
 ## Usage in conjunction with openHAB ##
 
 To use this service you need to get the consumption values from your smart-meter. There are of course lots of different ways to achieve this.
@@ -81,9 +87,9 @@ A possible setup could include:
     - https://github.com/die-bauerei/smart-meter-to-openhab
     - https://tibber.com/de/store/produkt/pulse-ir
     - ...
-- Let openHAB send the post request to this service. 
+- Let openHAB send the requests to this service. 
 
-This project includes a service that performs this request by using HABApp (https://github.com/spacemanspiff2007/HABApp)
+This project includes a service that performs this requests by using HABApp (https://github.com/spacemanspiff2007/HABApp)
 You can start habapp by e.g.
 ```bash
 HABAPP_CONFIG_FOLDER=$(source /home/ubuntu/smart_meter_py_env/bin/activate && pip show smartplug_energy_controller | grep Location | sed "s/Location: //")/oh_to_smartplug_energy_controller
@@ -113,3 +119,11 @@ ExecStart=/usr/bin/bash -lc "source /home/ubuntu/smart_meter_py_env/bin/activate
 [Install]
 WantedBy=multi-user.target
 ```
+
+By setting up a connection to your openHAB instance you can additionally use any Smart Plug you have configured inside your openHAB instance. 
+Have a look at the example config at https://github.com/die-bauerei/smartplug-energy-controller/blob/main/tests/data/config.example 
+
+## Troubleshooting ##
+
+- Have a look at the log-file you have given in your config.yml
+- Have a look at the HABApp log-file located in $HABAPP_CONFIG_FOLDER/log/HABApp.log

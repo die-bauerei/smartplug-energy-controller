@@ -7,32 +7,37 @@ from plugp100.common.credentials import AuthCredential
 from plugp100.new.device_factory import connect, DeviceConnectConfiguration
 from plugp100.new.tapoplug import TapoPlug
 
-from .config import SmartPlugConfig
+from .config import *
+
+import asyncio
 
 class PlugController(ABC):
     def __init__(self, logger : Logger, plug_cfg : SmartPlugConfig) -> None:
         self._logger=logger
-        self._cfg=plug_cfg
         assert plug_cfg.expected_consumption_in_watt >= 1
         assert plug_cfg.consumer_efficiency > 0 and plug_cfg.consumer_efficiency < 1
         self._watt_consumed_at_plug : float = plug_cfg.expected_consumption_in_watt
         self._consumer_efficiency=plug_cfg.consumer_efficiency
         self._propose_to_turn_on=False
+        self._lock : asyncio.Lock = asyncio.Lock()
 
     @property
     async def state(self):
         state : Dict[str, str] = {}
-        state['proposed_state'] = 'On' if self._propose_to_turn_on else 'Off'
-        state['actual_state'] = 'On' if await self.is_on() else 'Off'
+        async with self._lock:
+            state['proposed_state'] = 'On' if self._propose_to_turn_on else 'Off'
+            state['actual_state'] = 'On' if await self.is_on() else 'Off'
         return state
 
     @property
-    def watt_consumed(self) -> float:
-        return self._watt_consumed_at_plug
+    async def watt_consumed(self) -> float:
+        async with self._lock:
+            return self._watt_consumed_at_plug
 
     @property
-    def consumer_efficiency(self) -> float:
-        return self._consumer_efficiency
+    async def consumer_efficiency(self) -> float:
+        async with self._lock:
+            return self._consumer_efficiency
 
     @abstractmethod
     async def is_online(self) -> bool:
@@ -47,20 +52,20 @@ class PlugController(ABC):
         pass
 
     async def turn_on(self) -> bool:
-        self._propose_to_turn_on=True
-        return True
+        async with self._lock:
+            self._propose_to_turn_on=True
+            return True
 
     async def turn_off(self) -> bool:
-        self._propose_to_turn_on=False
-        return True
-
-    def update_values(self, watt_consumed_at_plug: float) -> None:
-        self._watt_consumed_at_plug=watt_consumed_at_plug
+        async with self._lock:
+            self._propose_to_turn_on=False
+            return True
 
 class TapoPlugController(PlugController):
 
-    def __init__(self, logger : Logger, plug_cfg : SmartPlugConfig) -> None:
+    def __init__(self, logger : Logger, plug_cfg : TapoSmartPlugConfig) -> None:
         super().__init__(logger, plug_cfg)
+        self._cfg=plug_cfg
         assert self._cfg.id != ''
         assert self._cfg.auth_user != ''
         assert self._cfg.auth_passwd != ''
@@ -103,9 +108,44 @@ class TapoPlugController(PlugController):
         return False
 
     async def turn_off(self) -> bool:
-        base_rc = await super().turn_on()
+        base_rc = await super().turn_off()
         if base_rc and await self.is_on() and self._plug is not None:
             await self._plug.turn_off()
             self._logger.info("Turned Tapo Plug off")
             return not await self.is_on()
         return False
+    
+class OpenHabPlugController(PlugController):
+
+    def __init__(self, logger : Logger, plug_cfg : OpenHabSmartPlugConfig) -> None:
+        super().__init__(logger, plug_cfg)
+        self._plug_cfg=plug_cfg
+        assert self._plug_cfg.oh_thing_name != ''
+        assert self._plug_cfg.oh_switch_item_name != ''
+        assert self._plug_cfg.oh_power_consumption_item_name != ''
+        self._is_on = False
+        self._online = True
+
+    @property
+    def oh_names(self):
+        info : Dict[str, str] = {}
+        info['oh_thing_name'] = self._plug_cfg.oh_thing_name
+        info['oh_switch_item_name'] = self._plug_cfg.oh_switch_item_name
+        info['oh_power_consumption_item_name'] = self._plug_cfg.oh_power_consumption_item_name
+        return info
+
+    def reset(self) -> None:
+        pass
+
+    async def is_online(self) -> bool:
+        return self._online
+
+    async def is_on(self) -> bool:
+        return self._is_on
+    
+    async def update_values(self, watt_consumed_at_plug: float, online : bool, is_on : bool) -> None:
+        async with self._lock:
+            self._watt_consumed_at_plug=watt_consumed_at_plug
+        self._online=online
+        self._is_on=is_on
+        self._logger.debug(f"Updated values of OpenHabPlugController to {watt_consumed_at_plug}, {online}, {is_on}")
