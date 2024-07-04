@@ -1,7 +1,9 @@
 from __future__ import annotations
 import sys
 from logging import Logger
-from typing import Dict, Union
+from typing import Dict, Union, cast
+
+import asyncio
 
 from .utils import *
 from .config import *
@@ -24,12 +26,13 @@ class PlugManager():
         self._latest_mean = sys.float_info.max
         self._having_overproduction = False
         self._controllers : Dict[str, PlugController] = {}
+        self._lock : asyncio.Lock = asyncio.Lock()
 
     def _add_plug_controller(self, uuid : str, controller : PlugController) -> None:
         self._controllers[uuid]=controller
 
-    async def _current_break_even(self) -> Union[None, float]:
-        watt_saving = await self._savings_from_plugs_turned_off.value((await self._watt_obtained_values[-1]).timestamp)
+    def _current_break_even(self) -> Union[None, float]:
+        watt_saving = self._savings_from_plugs_turned_off.value(self._watt_obtained_values[-1].timestamp)
         return self._break_even - watt_saving if self._break_even is not None else None
 
     def plug(self, plug_uuid : str) -> PlugController:
@@ -42,10 +45,10 @@ class PlugManager():
             try:
                 if await controller.is_online() and not await controller.is_on():
                     turn_on = True
-                    break_even = await self._current_break_even()
+                    break_even = self._current_break_even()
                     if self._watt_produced is not None and break_even is not None:
-                        efficiency_factor=max(0.0, controller.consumer_efficiency - efficiency_tolerance)
-                        turn_on = (self._watt_produced - break_even) > controller.watt_consumed*(1 - efficiency_factor)
+                        efficiency_factor=max(0.0, (await controller.consumer_efficiency) - efficiency_tolerance)
+                        turn_on = (self._watt_produced - break_even) > (await controller.watt_consumed)*(1 - efficiency_factor)
                     if turn_on:
                         await controller.turn_on()
                     
@@ -65,12 +68,14 @@ class PlugManager():
         for uuid, controller in reversed(self._controllers.items()):
             try:
                 if await controller.is_online() and await controller.is_on():
-                    efficiency_factor=min(1.0, controller.consumer_efficiency + efficiency_tolerance)
-                    if self._latest_mean > controller.watt_consumed*efficiency_factor:
+                    efficiency=await controller.consumer_efficiency
+                    watt_consumed=await controller.watt_consumed
+                    efficiency_factor=min(1.0, efficiency + efficiency_tolerance)
+                    if self._latest_mean > watt_consumed*efficiency_factor:
                         if await controller.turn_off():
                             time_delta = self._watt_obtained_values.time_delta() + controllers_on_count*self._min_expected_freq
-                            await self._savings_from_plugs_turned_off.add(controller.watt_consumed*(1 - controller.consumer_efficiency), 
-                                                                    (await self._watt_obtained_values[-1]).timestamp,
+                            self._savings_from_plugs_turned_off.add(watt_consumed*(1 - efficiency), 
+                                                                    self._watt_obtained_values[-1].timestamp,
                                                                     time_delta)
 
                     # NOTE: Only check the controller which is on and has the lowest prio
@@ -82,15 +87,14 @@ class PlugManager():
                 self._logger.warning("About to reset controller now.")
                 controller.reset()
 
-    # TODO: do all calculations in a lock?
-    async def _evaluate(self, watt_produced : Union[None, float] = None) -> bool:
-        if await self._watt_obtained_values.value_count() < 2:
+    def _evaluate(self, watt_produced : Union[None, float] = None) -> bool:
+        if self._watt_obtained_values.value_count() < 2:
             self._logger.error(f"Not enough values in the evaluated timeframe of {self._watt_obtained_values.time_delta()}. Make sure to add values more frequently.")
             return False
-        if (await self._watt_obtained_values[-1]).timestamp - (await self._watt_obtained_values[-2]).timestamp > self._min_expected_freq:
+        if self._watt_obtained_values[-1].timestamp - self._watt_obtained_values[-2].timestamp > self._min_expected_freq:
             self._logger.warning(f"Values are not added frequently enough. The minimum frequency is {self._min_expected_freq}. Some features might not work as intended.")
         had_overprotection = self._having_overproduction
-        self._latest_mean = await self._watt_obtained_values.mean()
+        self._latest_mean = self._watt_obtained_values.mean()
         self._having_overproduction = self._latest_mean < 1
         old_break_even = self._break_even
         if not had_overprotection and self._having_overproduction:
@@ -109,16 +113,25 @@ class PlugManager():
         return True
 
     async def add_smart_meter_values(self, watt_obtained_from_provider : float, watt_produced : Union[None, float] = None, timestamp : Union[None, datetime] = None):
-        await self._watt_obtained_values.add(ValueEntry(watt_obtained_from_provider, timestamp if timestamp else datetime.now()))
-        self._logger.debug(f"Added values: watt_obtained_from_provider={watt_obtained_from_provider}, watt_produced={watt_produced}")
-        if await self._evaluate(watt_produced):
-            await self._handle_turn_on_plug() if self._having_overproduction else await self._handle_turn_off_plug()
+        async with self._lock:
+            self._watt_obtained_values.add(ValueEntry(watt_obtained_from_provider, timestamp if timestamp else datetime.now()))
+            self._logger.debug(f"Added values: watt_obtained_from_provider={watt_obtained_from_provider}, watt_produced={watt_produced}")
+            if self._evaluate(watt_produced):
+                await self._handle_turn_on_plug() if self._having_overproduction else await self._handle_turn_off_plug()
 
     @staticmethod
     def create(logger : Logger, cfg_parser : ConfigParser) -> PlugManager:
         manager=PlugManager(logger, cfg_parser.general.eval_time_in_min)
         for uuid in cfg_parser.plug_uuids:
-            manager._add_plug_controller(uuid, TapoPlugController(logger, cfg_parser.plug(uuid)))
-            logger.info(f"Added Tapo Plug Controller for plug with uuid {uuid} using these config values:")
-            logger.info(cfg_parser.plug(uuid))
+            plug_cfg = cfg_parser.plug(uuid)
+            plug_controller : Union[OpenHabPlugController, TapoPlugController, None]=None
+            if plug_cfg.type == 'openhab':
+                plug_cfg = cast(OpenHabSmartPlugConfig, plug_cfg)
+                plug_controller = OpenHabPlugController(logger, plug_cfg)
+            else:
+                plug_cfg = cast(TapoSmartPlugConfig, plug_cfg)
+                plug_controller = TapoPlugController(logger, plug_cfg)
+            manager._add_plug_controller(uuid, plug_controller)
+            logger.info(f"Added Plug Controller for plug with uuid {uuid} using these config values:")
+            logger.info(plug_cfg)
         return manager
