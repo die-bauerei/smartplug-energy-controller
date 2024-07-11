@@ -67,8 +67,12 @@ async def update_plug(uuid: str, plug_values: PlugValues):
     openhab_plug_controller=cast(OpenHabPlugController, manager.plug(uuid))
     await openhab_plug_controller.update_values(plug_values.watt_consumed_at_plug, plug_values.online, plug_values.is_on)
 
+@app.get("/smart-meter")
+async def smart_meter_get():
+    return await manager.state
+
 @app.put("/smart-meter")
-async def smart_meter(smart_meter_values: SmartMeterValues):
+async def smart_meter_put(smart_meter_values: SmartMeterValues):
     await manager.add_smart_meter_values(smart_meter_values.watt_obtained_from_provider, smart_meter_values.watt_produced)
 
 if __name__ == "__main__":

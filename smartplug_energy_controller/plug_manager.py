@@ -28,6 +28,19 @@ class PlugManager():
         self._controllers : Dict[str, PlugController] = {}
         self._lock : asyncio.Lock = asyncio.Lock()
 
+    @property
+    async def state(self):
+        state : Dict[str, float] = {}
+        async with self._lock:
+            state['base_load'] = self._base_load
+            state['min_expected_freq_in_sec'] = self._min_expected_freq.total_seconds()
+            if self._watt_produced is not None:
+                state['watt_produced'] = self._watt_produced
+            if self._break_even is not None:
+                state['break_even'] = self._break_even
+            state['latest_mean'] = self._latest_mean
+        return state
+
     def _add_plug_controller(self, uuid : str, controller : PlugController) -> None:
         self._controllers[uuid]=controller
 
