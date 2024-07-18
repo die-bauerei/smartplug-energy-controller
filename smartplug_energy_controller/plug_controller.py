@@ -7,7 +7,8 @@ from plugp100.common.credentials import AuthCredential
 from plugp100.new.device_factory import connect, DeviceConnectConfiguration
 from plugp100.new.tapoplug import TapoPlug
 
-from .config import *
+from smartplug_energy_controller.config import *
+from smartplug_energy_controller import get_oh_connection
 
 import asyncio
 
@@ -119,6 +120,7 @@ class OpenHabPlugController(PlugController):
 
     def __init__(self, logger : Logger, plug_cfg : OpenHabSmartPlugConfig) -> None:
         super().__init__(logger, plug_cfg)
+        assert get_oh_connection() is not None
         self._plug_cfg=plug_cfg
         assert self._plug_cfg.oh_thing_name != ''
         assert self._plug_cfg.oh_switch_item_name != ''
@@ -142,6 +144,30 @@ class OpenHabPlugController(PlugController):
 
     async def is_on(self) -> bool:
         return self._is_on
+    
+    async def turn_on(self) -> bool:
+        base_rc = await super().turn_on()
+        oh_connection = get_oh_connection()
+        if oh_connection is None:
+            self._logger.error("OpenHabConnection is not set. Cannot turn on plug")
+        elif base_rc:
+            success=await oh_connection.post_to_item(self._plug_cfg.oh_switch_item_name, 'ON')
+            if success:
+                self._logger.info("Turned OpenHabPlug Plug on")
+            return success
+        return False
+
+    async def turn_off(self) -> bool:
+        base_rc = await super().turn_off()
+        oh_connection = get_oh_connection()
+        if oh_connection is None:
+            self._logger.error("OpenHabConnection is not set. Cannot turn off plug")
+        elif base_rc:
+            success=await oh_connection.post_to_item(self._plug_cfg.oh_switch_item_name, 'OFF')
+            if success:
+                self._logger.info("Turned OpenHabPlug Plug off")
+            return success
+        return False
     
     async def update_values(self, watt_consumed_at_plug: float, online : bool, is_on : bool) -> None:
         async with self._lock:

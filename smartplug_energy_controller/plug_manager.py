@@ -5,9 +5,9 @@ from typing import Dict, Union, cast
 
 import asyncio
 
-from .utils import *
-from .config import *
-from .plug_controller import *
+from smartplug_energy_controller.utils import *
+from smartplug_energy_controller.config import *
+from smartplug_energy_controller.plug_controller import *
 
 efficiency_tolerance=0.05
 
@@ -50,6 +50,9 @@ class PlugManager():
 
     def plug(self, plug_uuid : str) -> PlugController:
         return self._controllers[plug_uuid]
+
+    def plugs(self) -> List[PlugController]:
+        return list(self._controllers.values())
     
     async def _handle_turn_on_plug(self) -> None:
         assert self._having_overproduction
@@ -121,7 +124,8 @@ class PlugManager():
         elif had_overprotection and self._having_overproduction and self._break_even is not None:
             # decrease break-even value when overproduction is still present
             self._break_even = max(self._base_load, self._break_even*0.975)
-            self._logger.info(f"Break-even value has been updated from {old_break_even} to {self._break_even}")
+            if old_break_even != self._break_even:
+                self._logger.info(f"Break-even value has been updated from {old_break_even} to {self._break_even}")
         self._watt_produced=watt_produced
         return True
 

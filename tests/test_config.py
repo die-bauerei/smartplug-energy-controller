@@ -33,6 +33,7 @@ class TestConfig(unittest.TestCase):
                          OpenHabSmartPlugConfig('openhab', 333, 0.3, 'oh_smartplug_thing', 'oh_smartplug_switch', 'oh_smartplug_power'))
         self.assertEqual(parser.plug('5def8014-c16d-41aa-a01d-c19a0801f65c'), 
                          OpenHabSmartPlugConfig('openhab', 444, 0.4, 'oh_smartplug_thing_2', 'oh_smartplug_switch_2', 'oh_smartplug_power_2'))
+        self.assertEqual(parser.oh_connection, OpenHabConnectionConfig('http://localhost:8080', 'openhab', 'secret'))
         
     def test_transfer_to_habapp(self) -> None:
         parser=ConfigParser(config_file, habapp_config_path)

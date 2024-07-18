@@ -1,4 +1,3 @@
-import logging
 import uvicorn
 
 from pathlib import Path
@@ -8,7 +7,9 @@ from fastapi import FastAPI, Request
 from typing import Union, cast
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
+from datetime import datetime
 
+from smartplug_energy_controller import init, get_logger
 from smartplug_energy_controller.plug_controller import *
 from smartplug_energy_controller.plug_manager import PlugManager
 from smartplug_energy_controller.config import ConfigParser
@@ -16,28 +17,10 @@ from smartplug_energy_controller.config import ConfigParser
 class Settings(BaseSettings):
     config_path : Path
 
-def create_logger(file : Union[Path, None]) -> logging.Logger:
-    logger = logging.getLogger('smartplug-energy-controller')
-    log_handler : Union[logging.FileHandler, logging.StreamHandler] = logging.FileHandler(file) if file else logging.StreamHandler() 
-    formatter = logging.Formatter("%(levelname)s: %(asctime)s: %(message)s")
-    log_handler.setFormatter(formatter)
-    logger.addHandler(log_handler)
-    return logger
-
-try:
-    import importlib.metadata
-    __version__ = importlib.metadata.version('smartplug_energy_controller')
-except:
-    __version__ = 'development'
-
 settings = Settings() # type: ignore
 cfg_parser = ConfigParser(settings.config_path, Path(f"{root_path}/../oh_to_smartplug_energy_controller/config.yml"))
-logger=create_logger(cfg_parser.general.log_file)
-logger.setLevel(logging.INFO)
-logger.info(f"Starting smartplug-energy-controller version {__version__}")
-logger.setLevel(cfg_parser.general.log_level)
-manager=PlugManager.create(logger, cfg_parser)
-
+init(cfg_parser)
+manager=PlugManager.create(get_logger(), cfg_parser)
 app = FastAPI()
 
 class PlugValues(BaseModel):
@@ -48,6 +31,7 @@ class PlugValues(BaseModel):
 class SmartMeterValues(BaseModel):
     watt_obtained_from_provider: float
     watt_produced: Union[None, float] = None
+    timestamp : Union[None, datetime] = None
 
 @app.get("/")
 async def root(request: Request):
@@ -73,7 +57,7 @@ async def smart_meter_get():
 
 @app.put("/smart-meter")
 async def smart_meter_put(smart_meter_values: SmartMeterValues):
-    await manager.add_smart_meter_values(smart_meter_values.watt_obtained_from_provider, smart_meter_values.watt_produced)
+    await manager.add_smart_meter_values(smart_meter_values.watt_obtained_from_provider, smart_meter_values.watt_produced, smart_meter_values.timestamp)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
