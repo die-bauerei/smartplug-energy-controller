@@ -27,6 +27,12 @@ class OpenHabSmartPlugConfig(SmartPlugConfig):
     oh_power_consumption_item_name : str = ''
 
 @dataclass(frozen=True)
+class OpenHabConnectionConfig():
+    oh_url : str = ''
+    oh_user : str = ''
+    oh_password : str = ''
+
+@dataclass(frozen=True)
 class GeneralConfig():
     # Write logging to this file instead of to stdout
     log_file : Union[None, Path] = None
@@ -40,23 +46,31 @@ class GeneralConfig():
 class ConfigParser():
     def __init__(self, file : Path, habapp_config : Path) -> None:
         self._smart_plugs : Dict[str, SmartPlugConfig] = {}
+        self._oh_connection : Union[None, OpenHabConnectionConfig] = None
         yaml=YAML(typ='safe', pure=True)
         data=yaml.load(file)
         self._read_from_dict(data)
         if 'openhab_connection' in data:
+            self._oh_connection=OpenHabConnectionConfig(data['openhab_connection']['oh_url'], 
+                                                        data['openhab_connection']['oh_user'], 
+                                                        data['openhab_connection']['oh_password'])
             self._transfer_to_habapp(data['openhab_connection'], habapp_config)
 
     @property
     def general(self) -> GeneralConfig:
         return self._general
     
+    @property
+    def oh_connection(self) -> Union[None, OpenHabConnectionConfig]:
+        return self._oh_connection
+
     @cached_property
     def plug_uuids(self) -> List[str]:
         return list(self._smart_plugs.keys())
     
     def plug(self, plug_uuid : str) -> SmartPlugConfig:
         return self._smart_plugs[plug_uuid]
-        
+
     def _read_from_dict(self, data : dict):
         self._general=GeneralConfig(Path(data['log_file']), data['log_level'], data['eval_time_in_min'])
         for plug_uuid in data['smartplugs']:
@@ -71,7 +85,7 @@ class ConfigParser():
                 plug_cfg['oh_thing_name'], plug_cfg['oh_switch_item_name'], plug_cfg['oh_power_consumption_item_name'])
             else:
                 raise ValueError(f"Unknown Plug type: {plug_cfg['type']}")
-
+    
     def _transfer_to_habapp(self, data : dict, habapp_config_path : Path):
         # 1. fwd config to habapp config file
         yaml=YAML(typ='safe', pure=True)

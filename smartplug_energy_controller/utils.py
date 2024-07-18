@@ -1,6 +1,10 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, Any
+from logging import Logger
+import aiohttp
+
+from smartplug_energy_controller.config import OpenHabConnectionConfig
 
 @dataclass(frozen=True)
 class SavingFromPlug():
@@ -71,3 +75,21 @@ class RollingValues:
         for index in range(1, len(self._values)):
             weighted_sum+=self._values[index].value*(self._values[index].timestamp - self._values[index-1].timestamp).total_seconds()
         return weighted_sum/(self._values[-1].timestamp - self._values[0].timestamp).total_seconds()
+
+class OpenhabConnection():
+    def __init__(self, oh_con_cfg : OpenHabConnectionConfig, logger : Logger) -> None:
+        self._oh_url=oh_con_cfg.oh_url
+        self._logger=logger
+        auth=aiohttp.BasicAuth(oh_con_cfg.oh_user, oh_con_cfg.oh_password) if oh_con_cfg.oh_user != '' else None
+        self._session=aiohttp.ClientSession(auth=auth, headers={'Content-Type': 'text/plain'})
+
+    async def post_to_item(self, oh_item_name : str, value : Any) -> bool:
+        try:
+            async with self._session.post(url=f"{self._oh_url}/rest/items/{oh_item_name}", data=str(value), ssl=False) as response:
+                if response.status != 200:
+                    self._logger.warning(f"Failed to post value to openhab item {oh_item_name}. Return code: {response.status}. text: {await response.text()})")
+                    return False
+        except aiohttp.ClientError as e:
+            self._logger.warning("Caught Exception while posting to openHAB: " + str(e))
+            return False
+        return True
