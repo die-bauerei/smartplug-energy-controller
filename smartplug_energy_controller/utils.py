@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import List, Any
+from typing import List, Any, Dict
 from logging import Logger
 import aiohttp
 
@@ -13,16 +13,20 @@ class SavingFromPlug():
 
 class SavingsFromPlugsTurnedOff():
     def __init__(self) -> None:
-        self._savings : List[SavingFromPlug] = []
+        self._savings : Dict[str, SavingFromPlug] = {}
 
     def value(self, timestamp : datetime) -> float:
-        # trim list according to given timestamp
-        while self._savings and self._savings[0].valid_until_time < timestamp:
-            self._savings = self._savings[1:]
-        return sum([saving.watt_value for saving in self._savings])
+        # trim dict according to given timestamp
+        while self._savings and list(self._savings.values())[0].valid_until_time < timestamp:
+            self._savings.pop(list(self._savings.keys())[0])
+        return sum([saving.watt_value for saving in self._savings.values()])
+    
+    def remove(self, plug_uuid : str) -> None:
+        if plug_uuid in self._savings: 
+            self._savings.pop(plug_uuid)
 
-    def add(self, watt_value : float, timestamp : datetime, time_delta : timedelta) -> None:
-        self._savings.append(SavingFromPlug(watt_value, timestamp + time_delta))
+    def add(self, plug_uuid : str, watt_value : float, timestamp : datetime, time_delta : timedelta) -> None:
+        self._savings[plug_uuid]=SavingFromPlug(watt_value, timestamp + time_delta)
 
 @dataclass(frozen=True)
 class ValueEntry:

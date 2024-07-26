@@ -4,6 +4,7 @@ from pathlib import Path
 root_path = str( Path(__file__).parent.absolute() )
 
 from fastapi import FastAPI, Request
+from fastapi_utils.tasks import repeat_every
 from typing import Union, cast
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
@@ -59,5 +60,11 @@ async def smart_meter_get():
 async def smart_meter_put(smart_meter_values: SmartMeterValues):
     await manager.add_smart_meter_values(smart_meter_values.watt_obtained_from_provider, smart_meter_values.watt_produced, smart_meter_values.timestamp)
 
+@app.on_event("startup")
+@repeat_every(seconds=60*30)
+async def reset_base_load():
+    await manager.reset_base_load()
+
 if __name__ == "__main__":
+    # TODO: get host and port from env and add to habapp rules
     uvicorn.run(app, host="0.0.0.0", port=8000)

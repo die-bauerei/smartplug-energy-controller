@@ -12,17 +12,15 @@ from smartplug_energy_controller.plug_controller import *
 efficiency_tolerance=0.05
 
 class PlugManager():
-    def __init__(self, logger : Logger, eval_time_in_min : int, base_load : float = 150, min_expected_freq : timedelta = timedelta(seconds=90)) -> None:
+    def __init__(self, logger : Logger, eval_time_in_min : int, min_expected_freq : timedelta = timedelta(seconds=90)) -> None:
         self._logger=logger
         # Add a dummy value to the rolling watt-obtained values to assure valid state at the beginning
         self._watt_obtained_values=RollingValues(timedelta(minutes=eval_time_in_min),
                                                  [ValueEntry(sys.float_info.max, datetime.now())])
-        self._base_load=base_load
+        self._base_load=sys.float_info.max
         self._min_expected_freq=min_expected_freq
         self._watt_produced : Union[None, float] = None
         self._break_even : Union[None, float] = None
-        # compensation for savings since last break-even update due to plugs that have been turned off 
-        self._savings_from_plugs_turned_off : SavingsFromPlugsTurnedOff = SavingsFromPlugsTurnedOff()
         self._latest_mean = sys.float_info.max
         self._having_overproduction = False
         self._controllers : Dict[str, PlugController] = {}
@@ -40,13 +38,13 @@ class PlugManager():
                 state['break_even'] = self._break_even
             state['latest_mean'] = self._latest_mean
         return state
+    
+    async def reset_base_load(self) -> None:
+        async with self._lock:
+             self._base_load=sys.float_info.max
 
     def _add_plug_controller(self, uuid : str, controller : PlugController) -> None:
         self._controllers[uuid]=controller
-
-    def _current_break_even(self) -> Union[None, float]:
-        watt_saving = self._savings_from_plugs_turned_off.value(self._watt_obtained_values[-1].timestamp)
-        return self._break_even - watt_saving if self._break_even is not None else None
 
     def plug(self, plug_uuid : str) -> PlugController:
         return self._controllers[plug_uuid]
@@ -61,10 +59,9 @@ class PlugManager():
             try:
                 if await controller.is_online() and not await controller.is_on():
                     turn_on = True
-                    break_even = self._current_break_even()
-                    if self._watt_produced is not None and break_even is not None:
+                    if self._watt_produced is not None and self._break_even is not None:
                         efficiency_factor=max(0.0, (await controller.consumer_efficiency) - efficiency_tolerance)
-                        turn_on = (self._watt_produced - break_even) > (await controller.watt_consumed)*(1 - efficiency_factor)
+                        turn_on = (self._watt_produced - self._break_even) > (await controller.watt_consumed)*(1 - efficiency_factor)
                     if turn_on:
                         await controller.turn_on()
                     
@@ -79,7 +76,6 @@ class PlugManager():
 
     async def _handle_turn_off_plug(self) -> None:
         assert not self._having_overproduction
-        controllers_on_count=len([controller for controller in self._controllers.values() if await controller.is_on()])
         # check plugs in reversed order (lowest prio to highest prio)
         for uuid, controller in reversed(self._controllers.items()):
             try:
@@ -88,11 +84,7 @@ class PlugManager():
                     watt_consumed=await controller.watt_consumed
                     efficiency_factor=min(1.0, efficiency + efficiency_tolerance)
                     if self._latest_mean > watt_consumed*efficiency_factor:
-                        if await controller.turn_off():
-                            time_delta = self._watt_obtained_values.time_delta() + controllers_on_count*self._min_expected_freq
-                            self._savings_from_plugs_turned_off.add(watt_consumed*(1 - efficiency), 
-                                                                    self._watt_obtained_values[-1].timestamp,
-                                                                    time_delta)
+                        await controller.turn_off()
 
                     # NOTE: Only check the controller which is on and has the lowest prio
                     # Implementing consumer balancing would be to much overhead 
@@ -111,6 +103,7 @@ class PlugManager():
             self._logger.warning(f"Values are not added frequently enough. The minimum frequency is {self._min_expected_freq}. Some features might not work as intended.")
         had_overprotection = self._having_overproduction
         self._latest_mean = self._watt_obtained_values.mean()
+        self._base_load = min(self._base_load, self._latest_mean + (watt_produced if watt_produced is not None else 0))
         self._having_overproduction = self._latest_mean < 1
         old_break_even = self._break_even
         if not had_overprotection and self._having_overproduction:

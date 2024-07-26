@@ -12,7 +12,7 @@ class TestSavingsFromPlugsTurnedOff(unittest.TestCase):
         savings = SavingsFromPlugsTurnedOff()
         now = datetime.now()
         self.assertEqual(savings.value(now), 0)
-        savings.add(100, now, timedelta(minutes=1))
+        savings.add("abc", 100, now, timedelta(minutes=1))
         self.assertEqual(savings.value(now+timedelta(seconds=30)), 100)
         self.assertEqual(savings.value(now+timedelta(seconds=90)), 0)
 

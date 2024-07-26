@@ -10,6 +10,10 @@ cd $SCRIPT_DIR
 # read python version
 PY_VERSION=$(python3 print-from-setup-cfg.py mypy python_version)
 
+# to fix ModuleNotFoundError: No module named 'apt_pkg'
+sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
+sudo update-alternatives --set python3 /usr/bin/python3.8
+
 # needed for installation of python 3.11
 sudo apt install software-properties-common -y
 sudo -E add-apt-repository ppa:deadsnakes/ppa -y
@@ -18,6 +22,7 @@ sudo apt update
 # install python and wget
 sudo apt-get -y install python$PY_VERSION python$PY_VERSION-dev python$PY_VERSION-distutils wget
 sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python$PY_VERSION 1
+sudo update-alternatives --set python3 /usr/bin/python$PY_VERSION
 
 # install poetry. https://stackoverflow.com/questions/592620/how-can-i-check-if-a-program-exists-from-a-bash-script
 if ! command -v poetry &> /dev/null; then
