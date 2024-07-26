@@ -25,7 +25,6 @@ class SmartMeterValueForwarder(HABApp.Rule):
                 req_url (str): Full URL to send the get/put request to
         """
         super().__init__()
-        self._lock : asyncio.Lock = asyncio.Lock()
         self._url=req_url
         self._watt_obtained_item=NumberItem.get_item(watt_obtained_from_provider_item)
         self._watt_obtained_item.listen_event(self._watt_obtained_updated, ItemStateUpdatedEventFilter())
@@ -70,6 +69,7 @@ class SmartPlugSynchronizer(HABApp.Rule):
         self._smartplug_uuid : str = smartplug_uuid
         self._info_url='http://localhost:8000/plug-info'
         self._state_url='http://localhost:8000/plug-state'
+        self._lock : asyncio.Lock = asyncio.Lock()
         self.run.soon(callback=self._init_oh_connection) # type: ignore
     
     async def _init_oh_connection(self):
@@ -86,32 +86,54 @@ class SmartPlugSynchronizer(HABApp.Rule):
                 self._power_consumption_item.listen_event(self._sync_values, ItemStateChangedEventFilter())
                 log.info(f"SmartPlug with UUID {self._smartplug_uuid} successfully initialized.")
                 self.run.every(start_time=timedelta(seconds=1), interval=timedelta(minutes=20), callback=self._check_state) # type: ignore
+                self.run.every(start_time=timedelta(seconds=1), interval=timedelta(minutes=21), callback=self._check_thing) # type: ignore
 
     async def _sync_values(self, event):
-        power_consumption=self._power_consumption_item.get_value()
-        online=self._thing.status == 'ONLINE'
-        url=f"{self._state_url}/{self._smartplug_uuid}"
-        async with self.async_http.put(url, json={'watt_consumed_at_plug': power_consumption, 
-                                                    'online': online, 
-                                                    'is_on' : self._switch_item.is_on()}) as response:
-            if response.status != http.HTTPStatus.OK:
-                log.warning(f"Failed to forward smartplug values via put request to {url}. Return code: {response.status}. Text: {await response.text()}")
+        async with self._lock:
+            power_consumption=self._power_consumption_item.get_value()
+            online=self._thing.status == 'ONLINE'
+            url=f"{self._state_url}/{self._smartplug_uuid}"
+            async with self.async_http.put(url, json={'watt_consumed_at_plug': power_consumption, 
+                                                        'online': online, 
+                                                        'is_on' : self._switch_item.is_on()}) as response:
+                if response.status != http.HTTPStatus.OK:
+                    log.warning(f"Failed to forward smartplug values via put request to {url}. Return code: {response.status}. Text: {await response.text()}")
 
     async def _check_state(self):
-        # check if the proposed state has been set in an interval of ~10sec
-        check_count=0
-        while check_count < 10:
-            async with self.async_http.get(f"{self._state_url}/{self._smartplug_uuid}", headers={'Cache-Control': 'no-cache'}) as response:
-                if response.status != http.HTTPStatus.OK:
-                    log.warning(f"Failed to check state of SmartPlug with UUID {self._smartplug_uuid}. Return code: {response.status}. Text: {await response.text()}")
-                else:
-                    data = await response.json()
-                    proposed_to_be_on = True if data['proposed_state'] == 'On' else False
-                    if self._switch_item.is_on() == proposed_to_be_on:
-                        return # check successful
+        async with self._lock:
+            # check if the proposed state has been set in an interval of ~10sec
+            check_count=0
+            while check_count < 10:
+                async with self.async_http.get(f"{self._state_url}/{self._smartplug_uuid}", headers={'Cache-Control': 'no-cache'}) as response:
+                    if response.status != http.HTTPStatus.OK:
+                        log.warning(f"Failed to check state of SmartPlug with UUID {self._smartplug_uuid}. Return code: {response.status}. Text: {await response.text()}")
+                    else:
+                        data = await response.json()
+                        proposed_to_be_on = True if data['proposed_state'] == 'On' else False
+                        if self._switch_item.is_on() == proposed_to_be_on:
+                            return # check successful
+                await asyncio.sleep(1)
+                check_count+=1
+            log.warning(f"Switch {self._switch_item.name} is not in the proposed state.")
+
+    async def _check_thing_state_change(self, enable : bool) -> bool:
+        def _is_in_state() -> bool:
+            return self._thing.status == 'ONLINE' if enable else self._thing.status != 'ONLINE'
+        
+        self.run.soon(lambda:self._thing.set_enabled(enable)) # type: ignore
+        retry_count=0
+        while not _is_in_state() and retry_count < 10:
             await asyncio.sleep(1)
-            check_count+=1
-        log.warning(f"Switch {self._switch_item.name} is not in the proposed state.")
+            retry_count+=1
+        return _is_in_state()
+
+    async def _check_thing(self):
+        async with self._lock:
+            # turn thing off and on again
+            if not (await self._check_thing_state_change(False)):
+                log.error(f"Failed to turn off thing {self._thing.name}")
+            elif not (await self._check_thing_state_change(True)):
+                log.error(f"Failed to turn on thing {self._thing.name}")
 
 from pathlib import Path
 from dotenv import load_dotenv

@@ -70,7 +70,7 @@ class TestPlugManager(unittest.IsolatedAsyncioTestCase):
 
     async def test_turn_on_off_sunny_day(self) -> None:
         now = datetime.now()
-        await self._manager.add_smart_meter_values(200, 0, now)
+        await self._manager.add_smart_meter_values(150, 0, now)
         self.assertTrue(await self._all_plugs_off(self._plug_uuids))
         await self._manager.add_smart_meter_values(100, 100, now + timedelta(minutes=1, seconds=1))
         self.assertTrue(await self._all_plugs_off(self._plug_uuids))
@@ -119,7 +119,6 @@ class TestPlugManager(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(not await self._manager.plug('B').is_on())
         self.assertTrue(not await self._manager.plug('C').is_on())
         await self._manager.add_smart_meter_values(0, 360, now + timedelta(minutes=14, seconds=14))
-        self.assertEqual(self._manager._savings_from_plugs_turned_off.value(now + timedelta(minutes=14, seconds=14)), 75)
         self.assertTrue(await self._manager.plug('A').is_on())
         self.assertTrue(not await self._manager.plug('B').is_on())
         self.assertTrue(not await self._manager.plug('C').is_on())
@@ -130,7 +129,6 @@ class TestPlugManager(unittest.IsolatedAsyncioTestCase):
         await self._manager.add_smart_meter_values(130, 270, now + timedelta(minutes=16, seconds=16))
         self.assertTrue(await self._all_plugs_off(self._plug_uuids))
         await self._manager.add_smart_meter_values(10, 190, now + timedelta(minutes=17, seconds=17))
-        self.assertEqual(self._manager._savings_from_plugs_turned_off.value(now + timedelta(minutes=14, seconds=14)), 175)
         await self._manager.add_smart_meter_values(10, 190, now + timedelta(minutes=18, seconds=18))
         await self._manager.add_smart_meter_values(10, 190, now + timedelta(minutes=19, seconds=19))
         await self._manager.add_smart_meter_values(0, 210, now + timedelta(minutes=20, seconds=20))
@@ -140,7 +138,7 @@ class TestPlugManager(unittest.IsolatedAsyncioTestCase):
 
     async def test_consumer_is_around_break_even(self):
         now = datetime.now()
-        await self._manager.add_smart_meter_values(200, 0, now)
+        await self._manager.add_smart_meter_values(150, 0, now)
         self.assertTrue(await self._all_plugs_off(self._plug_uuids))
         await self._manager.add_smart_meter_values(100, 100, now + timedelta(minutes=1))
         self.assertTrue(await self._all_plugs_off(self._plug_uuids))
@@ -165,13 +163,15 @@ class TestPlugManager(unittest.IsolatedAsyncioTestCase):
         # And only be turned back on again if the mean-value is higher then the break-even point again in the given timeframe 
         # (TestPlugManager.eval_time_in_min + min_expected_freq)
         await self._manager.add_smart_meter_values(0, 290, now + timedelta(minutes=7))
-        watt_consumed= await self._manager.plug('A').watt_consumed
-        efficiency= await self._manager.plug('A').consumer_efficiency
-        self.assertEqual(self._manager._current_break_even(), (290+270)/2 - watt_consumed*efficiency)
+        self.assertEqual(self._manager._break_even, (290+270)/2)
         self.assertTrue(not await self._manager.plug('A').is_on())
         await self._manager.add_smart_meter_values(0, 280, now + timedelta(minutes=8))
         self.assertTrue(not await self._manager.plug('A').is_on())
         await self._manager.add_smart_meter_values(0, 310, now + timedelta(minutes=8, seconds=30))
+        self.assertTrue(not await self._manager.plug('A').is_on())
+        # each further call should decrease the break-even value until eventually Plug A is on
+        for i in range(20):
+            await self._manager.add_smart_meter_values(0, 310, now + timedelta(minutes=8, seconds=35+i))
         self.assertTrue(await self._manager.plug('A').is_on())
         await self._manager.add_smart_meter_values(80, 320, now + timedelta(minutes=9))
         self.assertTrue(await self._manager.plug('A').is_on())
