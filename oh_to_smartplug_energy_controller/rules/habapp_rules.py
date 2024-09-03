@@ -15,17 +15,25 @@ import HABApp.rule
 # writes to ../log/HABApp.log
 log = logging.getLogger('HABApp')
 
+from pathlib import Path
+from dotenv import load_dotenv
+load_dotenv(f"{Path(__file__).parent}/../.env")
+import os
+
+if 'SMARTPLUG_ENERGY_CONTROLLER_PORT' not in os.environ:
+    raise EnvironmentError("Failed to start oh_to_smartplug_energy_controller. Required env variable SMARTPLUG_ENERGY_CONTROLLER_PORT not found.")
+base_url=f"http://localhost:{os.environ['SMARTPLUG_ENERGY_CONTROLLER_PORT']}"
+
 class SmartMeterValueForwarder(HABApp.Rule):
-    def __init__(self, watt_obtained_from_provider_item : str, watt_produced_item : str, req_url : str) -> None:
+    def __init__(self, watt_obtained_from_provider_item : str, watt_produced_item : str) -> None:
         """
         Send values to the smartplug-energy-controller API
             Parameters:
                 watt_obtained_from_provider_item (str): openHAB number item
                 watt_produced_item (str): openHAB number item
-                req_url (str): Full URL to send the get/put request to
         """
         super().__init__()
-        self._url=req_url
+        self._url=base_url+"/smart-meter"
         self._watt_obtained_item=NumberItem.get_item(watt_obtained_from_provider_item)
         self._watt_obtained_item.listen_event(self._watt_obtained_updated, ItemStateUpdatedEventFilter())
         self._watt_produced_item=NumberItem.get_item(watt_produced_item)
@@ -42,17 +50,23 @@ class SmartMeterValueForwarder(HABApp.Rule):
                 self._watt_obtained_item.watch_update(force_request_time_in_sec).listen_event(self._send_latest_values)
                 log.info(f"SmartMeterValueForwarder successfully initialized with a force_request_time_in_sec of {force_request_time_in_sec}.")
 
+    async def _fwd_latest_watt_values(self) -> None:
+        try:
+            await self._send_values(str(self._watt_obtained_item.get_value()), str(self._watt_produced_item.get_value()))
+        except Exception as exc:
+            log.error(f"Caught Exception while forwarding latest watt values: {exc}")
+
     async def _watt_obtained_updated(self, event):
         assert isinstance(event, ItemStateUpdatedEvent), type(event)
-        await self._send_values(str(self._watt_obtained_item.get_value()), str(self._watt_produced_item.get_value()))
+        await self._fwd_latest_watt_values()
 
     async def _watt_produced_changed(self, event):
         assert isinstance(event, ItemStateChangedEvent), type(event)
-        await self._send_values(str(self._watt_obtained_item.get_value()), str(self._watt_produced_item.get_value()))
+        await self._fwd_latest_watt_values()
 
     async def _send_latest_values(self, event):
         log.warning("Forcing request to send latest values. This should not happen. Check your service which reads values from your electricity meter.")
-        await self._send_values(str(self._watt_obtained_item.get_value()), str(self._watt_produced_item.get_value()))
+        await self._fwd_latest_watt_values()
 
     async def _send_values(self, watt_obtained_value : str, watt_produced_value : str):
         async with self.async_http.put(self._url, json={'watt_obtained_from_provider': watt_obtained_value, 
@@ -67,8 +81,8 @@ class SmartPlugSynchronizer(HABApp.Rule):
         """
         super().__init__()
         self._smartplug_uuid : str = smartplug_uuid
-        self._info_url='http://localhost:8000/plug-info'
-        self._state_url='http://localhost:8000/plug-state'
+        self._info_url=base_url+'/plug-info'
+        self._state_url=base_url+'/plug-state'
         self._lock : asyncio.Lock = asyncio.Lock()
         self.run.soon(callback=self._init_oh_connection) # type: ignore
     
@@ -135,11 +149,6 @@ class SmartPlugSynchronizer(HABApp.Rule):
             elif not (await self._check_thing_state_change(True)):
                 log.error(f"Failed to turn on thing {self._thing.name}")
 
-from pathlib import Path
-from dotenv import load_dotenv
-load_dotenv(f"{Path(__file__).parent}/../.env")
-import os
-
 if 'openhab_plug_ids' in os.environ:
     for plug_id in os.environ['openhab_plug_ids'].split(','):
         log.info(f"About to init SmartPlugSynchronizer for plug {plug_id}")
@@ -148,5 +157,4 @@ if 'openhab_plug_ids' in os.environ:
 if 'oh_watt_obtained_from_provider_item' in os.environ and 'oh_watt_produced_item' in os.environ:
     log.info("About to init SmartMeterValueForwarder")
     SmartMeterValueForwarder(watt_obtained_from_provider_item=os.environ['oh_watt_obtained_from_provider_item'], 
-                            watt_produced_item=os.environ['oh_watt_produced_item'],
-                            req_url='http://localhost:8000/smart-meter')
+                            watt_produced_item=os.environ['oh_watt_produced_item'])

@@ -17,6 +17,7 @@ from smartplug_energy_controller.config import ConfigParser
 
 class Settings(BaseSettings):
     config_path : Path
+    smartplug_energy_controller_port : int
 
 settings = Settings() # type: ignore
 cfg_parser = ConfigParser(settings.config_path, Path(f"{root_path}/../oh_to_smartplug_energy_controller/config.yml"))
@@ -66,5 +67,4 @@ async def reset_base_load():
     await manager.reset_base_load()
 
 if __name__ == "__main__":
-    # TODO: get host and port from env and add to habapp rules
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=settings.smartplug_energy_controller_port)

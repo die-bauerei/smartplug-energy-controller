@@ -102,7 +102,7 @@ class TapoPlugController(PlugController):
 
     async def turn_on(self) -> bool:
         base_rc = await super().turn_on()
-        if base_rc and not await self.is_on() and self._plug is not None:
+        if base_rc and self._plug is not None:
             await self._plug.turn_on()
             self._logger.info("Turned Tapo Plug on")
             return await self.is_on()
@@ -110,7 +110,7 @@ class TapoPlugController(PlugController):
 
     async def turn_off(self) -> bool:
         base_rc = await super().turn_off()
-        if base_rc and await self.is_on() and self._plug is not None:
+        if base_rc and self._plug is not None:
             await self._plug.turn_off()
             self._logger.info("Turned Tapo Plug off")
             return not await self.is_on()
@@ -140,10 +140,12 @@ class OpenHabPlugController(PlugController):
         pass
 
     async def is_online(self) -> bool:
-        return self._online
+        async with self._lock:
+            return self._online
 
     async def is_on(self) -> bool:
-        return self._is_on
+        async with self._lock:
+            return self._is_on
     
     async def turn_on(self) -> bool:
         base_rc = await super().turn_on()
@@ -172,6 +174,6 @@ class OpenHabPlugController(PlugController):
     async def update_values(self, watt_consumed_at_plug: float, online : bool, is_on : bool) -> None:
         async with self._lock:
             self._watt_consumed_at_plug=watt_consumed_at_plug
-        self._online=online
-        self._is_on=is_on
+            self._online=online
+            self._is_on=is_on
         self._logger.debug(f"Updated values of OpenHabPlugController to {watt_consumed_at_plug}, {online}, {is_on}")
