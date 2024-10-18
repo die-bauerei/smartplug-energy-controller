@@ -2,7 +2,8 @@ import logging
 import sys
 import unittest
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, Dict
+from functools import cached_property
 
 from smartplug_energy_controller.plug_controller import PlugController
 from smartplug_energy_controller.plug_manager import PlugManager
@@ -16,6 +17,12 @@ class PlugControllerMock(PlugController):
         super().__init__(logger, cfg)
         self._is_on = False
         self._online = True
+
+    @cached_property
+    def info(self) -> Dict[str, str]:
+        info : Dict[str, str] = {}
+        info['type'] = 'testing'
+        return info
 
     def reset(self) -> None:
         pass

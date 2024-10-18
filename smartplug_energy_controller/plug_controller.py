@@ -1,6 +1,7 @@
 from logging import Logger
 
 from abc import ABC, abstractmethod
+from functools import cached_property
 from typing import Optional, Dict
 
 from plugp100.common.credentials import AuthCredential
@@ -28,17 +29,21 @@ class PlugController(ABC):
         async with self._lock:
             state['proposed_state'] = 'On' if self._propose_to_turn_on else 'Off'
             state['actual_state'] = 'On' if await self.is_on() else 'Off'
+            state['watt_consumed_at_plug'] = str(self._watt_consumed_at_plug)
         return state
 
     @property
     async def watt_consumed(self) -> float:
-        async with self._lock:
-            return self._watt_consumed_at_plug
+        return self._watt_consumed_at_plug
 
     @property
     async def consumer_efficiency(self) -> float:
-        async with self._lock:
-            return self._consumer_efficiency
+        return self._consumer_efficiency
+
+    @cached_property
+    @abstractmethod
+    def info(self) -> Dict[str, str]:
+        pass
 
     @abstractmethod
     async def is_online(self) -> bool:
@@ -53,14 +58,12 @@ class PlugController(ABC):
         pass
 
     async def turn_on(self) -> bool:
-        async with self._lock:
-            self._propose_to_turn_on=True
-            return True
+        self._propose_to_turn_on=True
+        return True
 
     async def turn_off(self) -> bool:
-        async with self._lock:
-            self._propose_to_turn_on=False
-            return True
+        self._propose_to_turn_on=False
+        return True
 
 class TapoPlugController(PlugController):
 
@@ -71,6 +74,15 @@ class TapoPlugController(PlugController):
         assert self._cfg.auth_user != ''
         assert self._cfg.auth_passwd != ''
         self._plug : Optional[TapoPlug] = None
+
+    @cached_property
+    def info(self) -> Dict[str, str]:
+        info : Dict[str, str] = {}
+        info['type'] = 'tapo'
+        info['id'] = self._cfg.id
+        info['user'] = self._cfg.auth_user
+        info['passwd'] = self._cfg.auth_passwd
+        return info
 
     async def is_online(self) -> bool:
         try:
@@ -128,9 +140,10 @@ class OpenHabPlugController(PlugController):
         self._is_on = False
         self._online = True
 
-    @property
-    def oh_names(self):
+    @cached_property
+    def info(self) -> Dict[str, str]:
         info : Dict[str, str] = {}
+        info['type'] = 'openhab'
         info['oh_thing_name'] = self._plug_cfg.oh_thing_name
         info['oh_switch_item_name'] = self._plug_cfg.oh_switch_item_name
         info['oh_power_consumption_item_name'] = self._plug_cfg.oh_power_consumption_item_name
@@ -140,12 +153,10 @@ class OpenHabPlugController(PlugController):
         pass
 
     async def is_online(self) -> bool:
-        async with self._lock:
-            return self._online
+        return self._online
 
     async def is_on(self) -> bool:
-        async with self._lock:
-            return self._is_on
+        return self._is_on
     
     async def turn_on(self) -> bool:
         base_rc = await super().turn_on()

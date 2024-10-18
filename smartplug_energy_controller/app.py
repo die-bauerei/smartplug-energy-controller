@@ -3,7 +3,7 @@ import uvicorn
 from pathlib import Path
 root_path = str( Path(__file__).parent.absolute() )
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi_utils.tasks import repeat_every
 from typing import Union, cast
 from pydantic import BaseModel
@@ -41,8 +41,7 @@ async def root(request: Request):
 
 @app.get("/plug-info/{uuid}")
 async def plug_info(uuid: str):
-    openhab_plug_controller=cast(OpenHabPlugController, manager.plug(uuid))
-    return openhab_plug_controller.oh_names
+    return manager.plug(uuid).info
 
 @app.get("/plug-state/{uuid}")
 async def read_plug(uuid: str):
@@ -50,6 +49,8 @@ async def read_plug(uuid: str):
 
 @app.put("/plug-state/{uuid}")
 async def update_plug(uuid: str, plug_values: PlugValues):
+    if not isinstance(manager.plug(uuid), OpenHabPlugController):
+        raise HTTPException(status_code=501, detail=f"Plug with uuid {uuid} is not an OpenHabPlugController. Only OpenHabPlugController can be updated.")
     openhab_plug_controller=cast(OpenHabPlugController, manager.plug(uuid))
     await openhab_plug_controller.update_values(plug_values.watt_consumed_at_plug, plug_values.online, plug_values.is_on)
 
