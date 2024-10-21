@@ -47,6 +47,14 @@ async def plug_info(uuid: str):
 async def read_plug(uuid: str):
     return await manager.plug(uuid).state
 
+@app.put("/plug-state/{uuid}/enable")
+async def enable_plug(uuid: str):
+    await (manager.plug(uuid).set_enabled(True))
+
+@app.put("/plug-state/{uuid}/disable")
+async def disable_plug(uuid: str):
+    await (manager.plug(uuid).set_enabled(False))
+
 @app.put("/plug-state/{uuid}")
 async def update_plug(uuid: str, plug_values: PlugValues):
     if not isinstance(manager.plug(uuid), OpenHabPlugController):

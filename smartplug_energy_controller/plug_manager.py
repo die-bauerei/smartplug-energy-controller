@@ -57,11 +57,11 @@ class PlugManager():
         # check plugs in given order (highest prio to lowest prio)
         for uuid, controller in self._controllers.items():
             try:
-                if await controller.is_online() and not await controller.is_on():
+                if controller.enabled and await controller.is_online() and not await controller.is_on():
                     turn_on = True
                     if self._watt_produced is not None and self._break_even is not None:
-                        efficiency_factor=max(0.0, (await controller.consumer_efficiency) - PlugManager._efficiency_tolerance)
-                        turn_on = (self._watt_produced - self._break_even) > (await controller.watt_consumed)*(1 - efficiency_factor)
+                        efficiency_factor=max(0.0, controller.consumer_efficiency - PlugManager._efficiency_tolerance)
+                        turn_on = (self._watt_produced - self._break_even) > controller.watt_consumed*(1 - efficiency_factor)
                     if turn_on:
                         # if turning on fails due to connection issues -> continue with next plug
                         # Usually the plug should not be online in this case, but having this additional check makes it more robust.   
@@ -81,11 +81,9 @@ class PlugManager():
         # check plugs in reversed order (lowest prio to highest prio)
         for uuid, controller in reversed(self._controllers.items()):
             try:
-                if await controller.is_online() and await controller.is_on():
-                    efficiency=await controller.consumer_efficiency
-                    watt_consumed=await controller.watt_consumed
-                    efficiency_factor=min(1.0, efficiency + PlugManager._efficiency_tolerance)
-                    if self._latest_mean > watt_consumed*efficiency_factor:
+                if controller.enabled and await controller.is_online() and await controller.is_on():
+                    efficiency_factor=min(1.0, controller.consumer_efficiency + PlugManager._efficiency_tolerance)
+                    if self._latest_mean > controller.watt_consumed*efficiency_factor:
                         # if turning off fails due to connection issues -> continue with next plug
                         # Usually the plug should not be online in this case, but having this additional check makes it more robust.   
                         if not await controller.turn_off():

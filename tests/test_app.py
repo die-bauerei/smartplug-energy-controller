@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from typing import Any
 from unittest.mock import patch
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 
 import logging
 import unittest
@@ -36,25 +37,26 @@ _client = TestClient(app)
 
 @dataclass()
 class PlugControllerMock:
+    _is_online : bool = True
     _is_on : bool = False
-    _propose_to_turn_on : bool = False
-    _turn_on_off_works : bool = True
+
+    def is_online(self) -> bool:
+        return self._is_online
+
     def is_on(self) -> bool:
         return self._is_on
     
     def turn_on(self) -> bool:
-        self._propose_to_turn_on=True
-        if self._turn_on_off_works:
-            self._is_on=True
-            return True
-        return False
+        self._is_on=True
+        return True
 
     def turn_off(self) -> bool:
-        self._propose_to_turn_on=False
-        if self._turn_on_off_works:
-            self._is_on=False
-            return True
-        return False
+        self._is_on=False
+        return True
+    
+    def update_values(self, watt_consumed_at_plug: float, online : bool, is_on : bool) -> None:
+        self._is_online=online
+        self._is_on=is_on
 
 tapo_ctrl_mock = PlugControllerMock()
 oh_ctrl_mock= PlugControllerMock()
@@ -129,8 +131,32 @@ class TestAppBasic(unittest.TestCase):
         assert response.status_code == 501
         assert response.json() == {'detail': f"Plug with uuid {tapo_uuid} is not an OpenHabPlugController. Only OpenHabPlugController can be updated."}
 
+    def test_enable_disable(self, *mocks) -> None:
+        tapo_uuid='5268704d-34c2-4e38-9d3f-73c4775babca'
+        response = _client.get(f"/plug-state/{tapo_uuid}")
+        assert response.status_code == 200
+        assert response.json()['enabled'] == 'On'
+        assert response.json()['proposed_state'] == 'Off'
+        assert response.json()['actual_state'] == 'Off'
+
+        response = _client.put(f"/plug-state/{tapo_uuid}/disable")
+        assert response.status_code == 200
+
+        response = _client.get(f"/plug-state/{tapo_uuid}")
+        assert response.status_code == 200
+        assert response.json()['enabled'] == 'Off'
+
+        response = _client.put(f"/plug-state/{tapo_uuid}/enable")
+        assert response.status_code == 200
+        
+        response = _client.get(f"/plug-state/{tapo_uuid}")
+        assert response.status_code == 200
+        assert response.json()['enabled'] == 'On'
+
 class TestAppAdvanced(unittest.TestCase):
-    def test_put_plug_state_oh(self, *mocks) -> None:
+    def test_put_plug_state_oh(self) -> None:
+        oh_ctrl_mock._is_on=False
+
         oh_uuid='5f5f39a3-e392-48a4-aa62-0bc6959f35d2'
         response = _client.get(f"/plug-state/{oh_uuid}")
         assert response.status_code == 200
@@ -145,6 +171,49 @@ class TestAppAdvanced(unittest.TestCase):
         assert response.json()['watt_consumed_at_plug'] == '200.0'
         assert response.json()['proposed_state'] == 'Off'
         assert response.json()['actual_state'] == 'On'
+
+    @patch.object(TapoPlugController, 'is_online', side_effect=tapo_ctrl_mock.is_online)
+    @patch.object(OpenHabPlugController, 'is_online', side_effect=oh_ctrl_mock.is_online)
+    @patch.object(TapoPlugController, 'is_on', side_effect=tapo_ctrl_mock.is_on)
+    @patch.object(OpenHabPlugController, 'is_on', side_effect=oh_ctrl_mock.is_on)
+    @patch.object(TapoPlugController, 'turn_on', side_effect=tapo_ctrl_mock.turn_on)
+    @patch.object(OpenHabPlugController, 'turn_on', side_effect=oh_ctrl_mock.turn_on)
+    @patch.object(TapoPlugController, 'turn_off', side_effect=tapo_ctrl_mock.turn_off)
+    @patch.object(OpenHabPlugController, 'turn_off', side_effect=oh_ctrl_mock.turn_off)
+    def test_smart_meter(self, *mocks) -> None:
+        response = _client.get("/smart-meter")
+        assert response.status_code == 200
+        assert response.json()['base_load'] == sys.float_info.max
+        assert response.json()['min_expected_freq_in_sec'] == 90.0
+        assert response.json()['latest_mean'] == sys.float_info.max
+        assert 'watt_produced' not in response.json()
+        assert 'break_even' not in response.json()
+
+        tapo_ctrl_mock._is_on=True
+        oh_ctrl_mock._is_on=True
+
+        # Testing without producer
+        ###############################
+        now = datetime.now()
+        # Turn off all four plugs
+        for i in range(4):
+            response = _client.put("/smart-meter", json={'watt_obtained_from_provider': 200, 'timestamp': (now + timedelta(minutes=i)).isoformat()})
+            assert response.status_code == 200
+        # A plug should be turned on when no energy was obtained for at least 5 min
+        for i in range(4, 12):
+            response = _client.put("/smart-meter", json={'watt_obtained_from_provider': 0, 'timestamp': (now + timedelta(minutes=i)).isoformat()})
+            assert response.status_code == 200
+        
+        # Testing with producer
+        ###############################
+        # Turn off all four plugs
+        for i in range(12, 16):
+            response = _client.put("/smart-meter", json={'watt_obtained_from_provider': 200, 'watt_produced': 100, 'timestamp': (now + timedelta(minutes=i)).isoformat()})
+            assert response.status_code == 200
+
+        # all mock functions should have been called
+        for mock in mocks:
+            mock.assert_called()
 
 def load_tests(loader, standard_tests, pattern):
     suite = unittest.TestSuite()

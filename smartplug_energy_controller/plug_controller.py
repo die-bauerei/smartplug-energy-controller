@@ -20,6 +20,7 @@ class PlugController(ABC):
         assert plug_cfg.consumer_efficiency > 0 and plug_cfg.consumer_efficiency < 1
         self._watt_consumed_at_plug : float = plug_cfg.expected_consumption_in_watt
         self._consumer_efficiency=plug_cfg.consumer_efficiency
+        self._enabled=True
         self._propose_to_turn_on=False
         self._lock : asyncio.Lock = asyncio.Lock()
 
@@ -27,17 +28,26 @@ class PlugController(ABC):
     async def state(self):
         state : Dict[str, str] = {}
         async with self._lock:
+            state['enabled'] = 'On' if self._enabled else 'Off'
             state['proposed_state'] = 'On' if self._propose_to_turn_on else 'Off'
             state['actual_state'] = 'On' if await self.is_on() else 'Off'
             state['watt_consumed_at_plug'] = str(self._watt_consumed_at_plug)
         return state
 
     @property
-    async def watt_consumed(self) -> float:
+    def enabled(self) -> bool:
+        return self._enabled
+    
+    async def set_enabled(self, enabled : bool) -> None:
+        async with self._lock:
+            self._enabled = enabled
+
+    @property
+    def watt_consumed(self) -> float:
         return self._watt_consumed_at_plug
 
     @property
-    async def consumer_efficiency(self) -> float:
+    def consumer_efficiency(self) -> float:
         return self._consumer_efficiency
 
     @cached_property
