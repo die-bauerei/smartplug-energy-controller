@@ -2,7 +2,7 @@ import logging
 from typing import Union
 from pathlib import Path
 from smartplug_energy_controller.config import ConfigParser, OpenHabConnectionConfig
-from smartplug_energy_controller.utils import OpenhabConnection
+from smartplug_energy_controller.utils import OpenhabConnectionProtocol, OpenhabConnection
 
 try:
     import importlib.metadata
@@ -29,12 +29,12 @@ def get_logger() -> logging.Logger:
         raise RuntimeError(f"Unable to get logger. It has not been initialized yet.")
     return _logger
 
-_oh_connection : Union[OpenhabConnection, None] = None
+_oh_connection : Union[OpenhabConnectionProtocol, None] = None
 def init_oh_connection(oh_con_cfg : Union[OpenHabConnectionConfig, None]) -> None:
     global _oh_connection
     _oh_connection = OpenhabConnection(oh_con_cfg, get_logger()) if oh_con_cfg else None
 
-def get_oh_connection() -> Union[OpenhabConnection, None]:
+def get_oh_connection() -> Union[OpenhabConnectionProtocol, None]:
     global _oh_connection
     return _oh_connection
 
