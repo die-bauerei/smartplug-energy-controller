@@ -2,7 +2,8 @@ import logging
 import sys
 import unittest
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, Dict
+from functools import cached_property
 
 from smartplug_energy_controller.plug_controller import PlugController
 from smartplug_energy_controller.plug_manager import PlugManager
@@ -16,6 +17,12 @@ class PlugControllerMock(PlugController):
         super().__init__(logger, cfg)
         self._is_on = False
         self._online = True
+
+    @cached_property
+    def info(self) -> Dict[str, str]:
+        info : Dict[str, str] = {}
+        info['type'] = 'testing'
+        return info
 
     def reset(self) -> None:
         pass
@@ -45,11 +52,11 @@ class TestPlugManager(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         # this is called before each test
         self._manager=PlugManager(logger, TestPlugManager.eval_time_in_min)
-        cfg=SmartPlugConfig(type='testing', expected_consumption_in_watt=200, consumer_efficiency=0.5)
+        cfg=SmartPlugConfig(type='testing', enabled=True, expected_consumption_in_watt=200, consumer_efficiency=0.5)
         self._manager._add_plug_controller("A", PlugControllerMock(logger, cfg))
-        cfg=SmartPlugConfig(type='testing', expected_consumption_in_watt=100, consumer_efficiency=0.5)
+        cfg=SmartPlugConfig(type='testing', enabled=True, expected_consumption_in_watt=100, consumer_efficiency=0.5)
         self._manager._add_plug_controller("B", PlugControllerMock(logger, cfg))
-        cfg=SmartPlugConfig(type='testing', expected_consumption_in_watt=50, consumer_efficiency=0.5)
+        cfg=SmartPlugConfig(type='testing', enabled=True, expected_consumption_in_watt=50, consumer_efficiency=0.5)
         self._manager._add_plug_controller("C", PlugControllerMock(logger, cfg))
         self._plug_uuids=['A', 'B', 'C']
 

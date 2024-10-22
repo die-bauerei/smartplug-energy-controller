@@ -26,13 +26,13 @@ class TestConfig(unittest.TestCase):
                                              '5f5f39a3-e392-48a4-aa62-0bc6959f35d2',
                                              '5def8014-c16d-41aa-a01d-c19a0801f65c'])
         self.assertEqual(parser.plug('5268704d-34c2-4e38-9d3f-73c4775babca'), 
-                         TapoSmartPlugConfig('tapo', 111, 0.1, '192.168.110.1', 'test_user_1', 'test_passwd_1'))
+                         TapoSmartPlugConfig('tapo', True, 111, 0.1, '192.168.110.1', 'test_user_1', 'test_passwd_1'))
         self.assertEqual(parser.plug('46742b02-aabb-47a7-9207-92b7dcea4875'), 
-                         TapoSmartPlugConfig('tapo', 222, 0.2, '192.168.110.2', 'test_user_2', 'test_passwd_2'))
-        self.assertEqual(parser.plug('5f5f39a3-e392-48a4-aa62-0bc6959f35d2'), 
-                         OpenHabSmartPlugConfig('openhab', 333, 0.3, 'oh_smartplug_thing', 'oh_smartplug_switch', 'oh_smartplug_power'))
+                         TapoSmartPlugConfig('tapo', True, 222, 0.2, '192.168.110.2', 'test_user_2', 'test_passwd_2'))
+        self.assertEqual(parser.plug('5f5f39a3-e392-48a4-aa62-0bc6959f35d2'),
+                         OpenHabSmartPlugConfig('openhab', True, 333, 0.3, 'oh_smartplug_thing', 'oh_smartplug_switch', 'oh_smartplug_power', 'oh_automation_enabled'))
         self.assertEqual(parser.plug('5def8014-c16d-41aa-a01d-c19a0801f65c'), 
-                         OpenHabSmartPlugConfig('openhab', 444, 0.4, 'oh_smartplug_thing_2', 'oh_smartplug_switch_2', 'oh_smartplug_power_2'))
+                         OpenHabSmartPlugConfig('openhab', True, 444, 0.4, 'oh_smartplug_thing_2', 'oh_smartplug_switch_2', 'oh_smartplug_power_2', 'oh_automation_enabled_2'))
         self.assertEqual(parser.oh_connection, OpenHabConnectionConfig('http://localhost:8080', 'openhab', 'secret'))
         
     def test_transfer_to_habapp(self) -> None:
