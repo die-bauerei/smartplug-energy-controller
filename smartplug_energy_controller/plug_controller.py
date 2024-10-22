@@ -20,7 +20,7 @@ class PlugController(ABC):
         assert plug_cfg.consumer_efficiency > 0 and plug_cfg.consumer_efficiency < 1
         self._watt_consumed_at_plug : float = plug_cfg.expected_consumption_in_watt
         self._consumer_efficiency=plug_cfg.consumer_efficiency
-        self._enabled=True
+        self._enabled=plug_cfg.enabled
         self._propose_to_turn_on=False
         self._lock : asyncio.Lock = asyncio.Lock()
 
@@ -157,6 +157,7 @@ class OpenHabPlugController(PlugController):
         info['oh_thing_name'] = self._plug_cfg.oh_thing_name
         info['oh_switch_item_name'] = self._plug_cfg.oh_switch_item_name
         info['oh_power_consumption_item_name'] = self._plug_cfg.oh_power_consumption_item_name
+        info['oh_automation_enabled_switch_item_name'] = self._plug_cfg.oh_automation_enabled_switch_item_name
         return info
 
     def reset(self) -> None:

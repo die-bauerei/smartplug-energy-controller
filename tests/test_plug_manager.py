@@ -52,11 +52,11 @@ class TestPlugManager(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         # this is called before each test
         self._manager=PlugManager(logger, TestPlugManager.eval_time_in_min)
-        cfg=SmartPlugConfig(type='testing', expected_consumption_in_watt=200, consumer_efficiency=0.5)
+        cfg=SmartPlugConfig(type='testing', enabled=True, expected_consumption_in_watt=200, consumer_efficiency=0.5)
         self._manager._add_plug_controller("A", PlugControllerMock(logger, cfg))
-        cfg=SmartPlugConfig(type='testing', expected_consumption_in_watt=100, consumer_efficiency=0.5)
+        cfg=SmartPlugConfig(type='testing', enabled=True, expected_consumption_in_watt=100, consumer_efficiency=0.5)
         self._manager._add_plug_controller("B", PlugControllerMock(logger, cfg))
-        cfg=SmartPlugConfig(type='testing', expected_consumption_in_watt=50, consumer_efficiency=0.5)
+        cfg=SmartPlugConfig(type='testing', enabled=True, expected_consumption_in_watt=50, consumer_efficiency=0.5)
         self._manager._add_plug_controller("C", PlugControllerMock(logger, cfg))
         self._plug_uuids=['A', 'B', 'C']
 

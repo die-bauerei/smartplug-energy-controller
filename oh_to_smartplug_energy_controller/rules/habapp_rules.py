@@ -3,6 +3,7 @@ import HABApp
 from HABApp.core.events import EventFilter
 from HABApp.openhab.events import ItemStateChangedEvent, ItemStateChangedEventFilter, ItemStateUpdatedEvent, ItemStateUpdatedEventFilter, ThingStatusInfoChangedEvent
 from HABApp.openhab.items import NumberItem, SwitchItem, Thing
+from HABApp.openhab.definitions.values import OnOffValue
 
 from datetime import timedelta
 
@@ -98,6 +99,8 @@ class SmartPlugSynchronizer(HABApp.Rule):
                 self._switch_item.listen_event(self._sync_values, ItemStateChangedEventFilter())
                 self._power_consumption_item=NumberItem.get_item(data['oh_power_consumption_item_name'])
                 self._power_consumption_item.listen_event(self._sync_values, ItemStateChangedEventFilter())
+                self._automation_enabled_switch_item=SwitchItem.get_item(data['oh_automation_enabled_switch_item_name'])
+                self._automation_enabled_switch_item.listen_event(self._enable_disable_automation, ItemStateChangedEventFilter())
                 log.info(f"SmartPlug with UUID {self._smartplug_uuid} successfully initialized.")
                 self.run.every(start_time=timedelta(seconds=1), interval=timedelta(minutes=20), callback=self._check_state) # type: ignore
                 self.run.every(start_time=timedelta(seconds=1), interval=timedelta(minutes=21), callback=self._check_thing) # type: ignore
@@ -112,6 +115,14 @@ class SmartPlugSynchronizer(HABApp.Rule):
                                                         'is_on' : self._switch_item.is_on()}) as response:
                 if response.status != http.HTTPStatus.OK:
                     log.warning(f"Failed to forward smartplug values via put request to {url}. Return code: {response.status}. Text: {await response.text()}")
+
+    async def _enable_disable_automation(self, event):
+        async with self._lock:
+            route_suffix = "enable" if event.value == OnOffValue.ON else "disable"
+            url=f"{self._state_url}/{self._smartplug_uuid}/{route_suffix}"
+            async with self.async_http.put(url) as response:
+                if response.status != http.HTTPStatus.OK:
+                    log.warning(f"Failed to enable/disable smartplug via put request to {url}. Return code: {response.status}. Text: {await response.text()}")
 
     async def _check_state(self):
         async with self._lock:

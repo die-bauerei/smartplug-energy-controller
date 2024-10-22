@@ -91,6 +91,7 @@ class TestAppBasic(unittest.TestCase):
         assert response.json()['oh_thing_name'] == 'oh_smartplug_thing'
         assert response.json()['oh_switch_item_name'] == 'oh_smartplug_switch'
         assert response.json()['oh_power_consumption_item_name'] == 'oh_smartplug_power'
+        assert response.json()['oh_automation_enabled_switch_item_name'] == 'oh_automation_enabled'
     
     def test_get_plug_state(self, *mocks) -> None:
         response = _client.get("/plug-state/5268704d-34c2-4e38-9d3f-73c4775babca")
