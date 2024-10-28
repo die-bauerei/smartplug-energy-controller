@@ -2,15 +2,6 @@ log_file : "/full/path/to/your/test.log"
 log_level : 20
 eval_time_in_min : 5
 
-# This part is only needed if you want to use smartplugs of type 'openhab'
-openhab_connection:
-  oh_url : 'http://localhost:8080'
-  oh_user : 'openhab'
-  oh_password: 'secret'
-  # needed if you want to push smart-meter values from openHAB 
-  oh_watt_obtained_from_provider_item : 'smart_meter_overall_consumption' 
-  oh_watt_produced_item : 'system_balkonkraftwerk_now'
-
 # NOTE: the order of the plugs define the priority (top = highest prio. bottom = lowest prio)
 smartplugs:
   5268704d-34c2-4e38-9d3f-73c4775babca:
@@ -47,3 +38,12 @@ smartplugs:
     oh_switch_item_name : 'oh_smartplug_switch_2'
     oh_power_consumption_item_name : 'oh_smartplug_power_2'
     oh_automation_enabled_switch_item_name : 'oh_automation_enabled_2'
+
+# This part is only needed if you want to use smartplugs of type 'openhab'
+openhab_connection:
+  oh_url : 'http://localhost:8080'
+  oh_user : 'openhab'
+  oh_password: 'secret'
+  # needed if you want to push smart-meter values from openHAB 
+  oh_watt_obtained_from_provider_item : 'smart_meter_overall_consumption' 
+  oh_watt_produced_item : 'system_balkonkraftwerk_now'

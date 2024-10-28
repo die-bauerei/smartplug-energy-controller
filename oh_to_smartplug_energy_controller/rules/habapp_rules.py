@@ -99,11 +99,26 @@ class SmartPlugSynchronizer(HABApp.Rule):
                 self._switch_item.listen_event(self._sync_values, ItemStateChangedEventFilter())
                 self._power_consumption_item=NumberItem.get_item(data['oh_power_consumption_item_name'])
                 self._power_consumption_item.listen_event(self._sync_values, ItemStateChangedEventFilter())
-                self._automation_enabled_switch_item=SwitchItem.get_item(data['oh_automation_enabled_switch_item_name'])
-                self._automation_enabled_switch_item.listen_event(self._enable_disable_automation, ItemStateChangedEventFilter())
-                log.info(f"SmartPlug with UUID {self._smartplug_uuid} successfully initialized.")
-                self.run.every(start_time=timedelta(seconds=1), interval=timedelta(minutes=20), callback=self._check_state) # type: ignore
-                self.run.every(start_time=timedelta(seconds=1), interval=timedelta(minutes=21), callback=self._check_thing) # type: ignore
+                self._automation_enabled_switch_item=None
+                if 'oh_automation_enabled_switch_item_name' in data:
+                    self._automation_enabled_switch_item=SwitchItem.get_item(data['oh_automation_enabled_switch_item_name'])
+                    self._automation_enabled_switch_item.listen_event(self._enable_disable_automation, ItemStateChangedEventFilter())
+        
+        if self._automation_enabled_switch_item is not None:
+            async with self.async_http.get(f"{self._state_url}/{self._smartplug_uuid}", headers={'Cache-Control': 'no-cache'}) as response:
+                if response.status != http.HTTPStatus.OK:
+                    log.error(f"Failed to init oh_automation_enabled_switch_item from SmartPlug with UUID {self._smartplug_uuid}. Return code: {response.status}. Text: {await response.text()}")
+                else:
+                    data = await response.json()
+                    self.openhab.send_command(self._automation_enabled_switch_item.name, 
+                                              OnOffValue.ON if data['enabled'] == 'On' else OnOffValue.OFF)
+                    log.info(f"oh switch item {self._automation_enabled_switch_item.name} successfully initialized.")
+        else:
+            log.info(f"No oh_automation_enabled_switch_item_name for SmartPlug with UUID {self._smartplug_uuid} configured.")
+        
+        self.run.every(start_time=timedelta(seconds=1), interval=timedelta(minutes=20), callback=self._check_state) # type: ignore
+        self.run.every(start_time=timedelta(seconds=1), interval=timedelta(minutes=21), callback=self._check_thing) # type: ignore
+        log.info(f"SmartPlug with UUID {self._smartplug_uuid} successfully initialized.")
 
     async def _sync_values(self, event):
         async with self._lock:

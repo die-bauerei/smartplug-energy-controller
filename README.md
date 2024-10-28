@@ -116,6 +116,7 @@ UMask=002
 Restart=on-failure
 RestartSec=5s
 #Provide environment variable (e.g. in your ~/.profile). Assignment example see above
+Environment="SMARTPLUG_ENERGY_CONTROLLER_PORT=8000"
 ExecStart=/usr/bin/bash -lc "source /home/ubuntu/smart_meter_py_env/bin/activate && habapp -c $HABAPP_CONFIG_FOLDER"
 
 [Install]
