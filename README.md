@@ -33,6 +33,7 @@ pip install smartplug-energy-controller
 6. Provide environment variables (e.g. in your ~/.profile).
 ```bash
 CONFIG_PATH=full/path/to/config.yml
+SMARTPLUG_ENERGY_CONTROLLER_PORT=8000
 ```
 
 ## Configuration ##
@@ -54,7 +55,8 @@ UMask=002
 Restart=on-failure
 RestartSec=5s
 Environment="CONFIG_PATH=full/path/to/config.yml"
-ExecStart=/usr/bin/bash -lc "source /home/ubuntu/smart_meter_py_env/bin/activate && uvicorn --host 0.0.0.0 --port 8000 smartplug_energy_controller.app:app > /dev/null"
+Environment="SMARTPLUG_ENERGY_CONTROLLER_PORT=8000"
+ExecStart=/usr/bin/bash -lc "source /home/ubuntu/smart_meter_py_env/bin/activate && uvicorn --host 0.0.0.0 --port $SMARTPLUG_ENERGY_CONTROLLER_PORT smartplug_energy_controller.app:app > /dev/null"
 
 [Install]
 WantedBy=multi-user.target
@@ -97,7 +99,7 @@ source /home/ubuntu/smart_meter_py_env/bin/activate && habapp --config $HABAPP_C
 ```
 NOTE: Make sure to first start smartplug_energy_controller as this will setup the configuration for HABApp. 
 
-*The service expects the smartplug_energy_controller API on http://localhost:8000*
+*The service expects the smartplug_energy_controller API on http://localhost:$SMARTPLUG_ENERGY_CONTROLLER_PORT*
 
 Create a systemd service */etc/systemd/system/oh_to_smartplug_energy_controller.service* to setup autostart for this service as well:
 ```bash
@@ -114,6 +116,7 @@ UMask=002
 Restart=on-failure
 RestartSec=5s
 #Provide environment variable (e.g. in your ~/.profile). Assignment example see above
+Environment="SMARTPLUG_ENERGY_CONTROLLER_PORT=8000"
 ExecStart=/usr/bin/bash -lc "source /home/ubuntu/smart_meter_py_env/bin/activate && habapp -c $HABAPP_CONFIG_FOLDER"
 
 [Install]

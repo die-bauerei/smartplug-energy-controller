@@ -9,9 +9,9 @@ from smartplug_energy_controller.utils import *
 from smartplug_energy_controller.config import *
 from smartplug_energy_controller.plug_controller import *
 
-efficiency_tolerance=0.05
-
 class PlugManager():
+    _efficiency_tolerance=0.05
+
     def __init__(self, logger : Logger, eval_time_in_min : int, min_expected_freq : timedelta = timedelta(seconds=90)) -> None:
         self._logger=logger
         # Add a dummy value to the rolling watt-obtained values to assure valid state at the beginning
@@ -57,17 +57,19 @@ class PlugManager():
         # check plugs in given order (highest prio to lowest prio)
         for uuid, controller in self._controllers.items():
             try:
-                if await controller.is_online() and not await controller.is_on():
+                if controller.enabled and await controller.is_online() and not await controller.is_on():
                     turn_on = True
                     if self._watt_produced is not None and self._break_even is not None:
-                        efficiency_factor=max(0.0, (await controller.consumer_efficiency) - efficiency_tolerance)
-                        turn_on = (self._watt_produced - self._break_even) > (await controller.watt_consumed)*(1 - efficiency_factor)
+                        efficiency_factor=max(0.0, controller.consumer_efficiency - PlugManager._efficiency_tolerance)
+                        turn_on = (self._watt_produced - self._break_even) > controller.watt_consumed*(1 - efficiency_factor)
                     if turn_on:
-                        await controller.turn_on()
-                    
+                        # if turning on fails due to connection issues -> continue with next plug
+                        # Usually the plug should not be online in this case, but having this additional check makes it more robust.   
+                        if not await controller.turn_on():
+                            continue
                     # NOTE: Only check the controller which is off and has the highest prio
-                    # Implementing consumer balancing would be to much overhead 
-                    break                        
+                    # Implementing consumer balancing would be to much overhead. 
+                    break
             except Exception as e:
                 # Just log as warning since the plug could just be unconnected 
                 self._logger.warning(f"Caught Exception while turning on Plug with UUID {uuid}. Exception message: {e}")
@@ -79,13 +81,13 @@ class PlugManager():
         # check plugs in reversed order (lowest prio to highest prio)
         for uuid, controller in reversed(self._controllers.items()):
             try:
-                if await controller.is_online() and await controller.is_on():
-                    efficiency=await controller.consumer_efficiency
-                    watt_consumed=await controller.watt_consumed
-                    efficiency_factor=min(1.0, efficiency + efficiency_tolerance)
-                    if self._latest_mean > watt_consumed*efficiency_factor:
-                        await controller.turn_off()
-
+                if controller.enabled and await controller.is_online() and await controller.is_on():
+                    efficiency_factor=min(1.0, controller.consumer_efficiency + PlugManager._efficiency_tolerance)
+                    if self._latest_mean > controller.watt_consumed*efficiency_factor:
+                        # if turning off fails due to connection issues -> continue with next plug
+                        # Usually the plug should not be online in this case, but having this additional check makes it more robust.   
+                        if not await controller.turn_off():
+                            continue
                     # NOTE: Only check the controller which is on and has the lowest prio
                     # Implementing consumer balancing would be to much overhead 
                     break

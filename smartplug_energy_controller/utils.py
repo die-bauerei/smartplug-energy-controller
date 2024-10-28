@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import List, Any, Dict
+from typing import List, Any, Dict, Protocol
 from logging import Logger
 import aiohttp
 
@@ -80,6 +80,9 @@ class RollingValues:
             weighted_sum+=self._values[index].value*(self._values[index].timestamp - self._values[index-1].timestamp).total_seconds()
         return weighted_sum/(self._values[-1].timestamp - self._values[0].timestamp).total_seconds()
 
+class OpenhabConnectionProtocol(Protocol):
+    async def post_to_item(self, oh_item_name : str, value : Any) -> bool: ...
+        
 class OpenhabConnection():
     def __init__(self, oh_con_cfg : OpenHabConnectionConfig, logger : Logger) -> None:
         self._oh_url=oh_con_cfg.oh_url

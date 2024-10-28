@@ -3,7 +3,7 @@ import uvicorn
 from pathlib import Path
 root_path = str( Path(__file__).parent.absolute() )
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi_utils.tasks import repeat_every
 from typing import Union, cast
 from pydantic import BaseModel
@@ -17,6 +17,7 @@ from smartplug_energy_controller.config import ConfigParser
 
 class Settings(BaseSettings):
     config_path : Path
+    smartplug_energy_controller_port : int
 
 settings = Settings() # type: ignore
 cfg_parser = ConfigParser(settings.config_path, Path(f"{root_path}/../oh_to_smartplug_energy_controller/config.yml"))
@@ -40,15 +41,24 @@ async def root(request: Request):
 
 @app.get("/plug-info/{uuid}")
 async def plug_info(uuid: str):
-    openhab_plug_controller=cast(OpenHabPlugController, manager.plug(uuid))
-    return openhab_plug_controller.oh_names
+    return manager.plug(uuid).info
 
 @app.get("/plug-state/{uuid}")
 async def read_plug(uuid: str):
     return await manager.plug(uuid).state
 
+@app.put("/plug-state/{uuid}/enable")
+async def enable_plug(uuid: str):
+    await (manager.plug(uuid).set_enabled(True))
+
+@app.put("/plug-state/{uuid}/disable")
+async def disable_plug(uuid: str):
+    await (manager.plug(uuid).set_enabled(False))
+
 @app.put("/plug-state/{uuid}")
 async def update_plug(uuid: str, plug_values: PlugValues):
+    if not isinstance(manager.plug(uuid), OpenHabPlugController):
+        raise HTTPException(status_code=501, detail=f"Plug with uuid {uuid} is not an OpenHabPlugController. Only OpenHabPlugController can be updated.")
     openhab_plug_controller=cast(OpenHabPlugController, manager.plug(uuid))
     await openhab_plug_controller.update_values(plug_values.watt_consumed_at_plug, plug_values.online, plug_values.is_on)
 
@@ -66,5 +76,4 @@ async def reset_base_load():
     await manager.reset_base_load()
 
 if __name__ == "__main__":
-    # TODO: get host and port from env and add to habapp rules
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=settings.smartplug_energy_controller_port)

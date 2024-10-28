@@ -7,6 +7,7 @@ from functools import cached_property
 @dataclass(frozen=True)
 class SmartPlugConfig():
     type : str
+    enabled : bool = True # When disabled, the plug can be controlled manually.
     # Expected consumption value in Watt of consumer(s) being plugged into the Plug
     expected_consumption_in_watt : int = 0
     # Efficiency of the consumer(s) being plugged into the Plug (0 < x < 1)
@@ -25,6 +26,8 @@ class OpenHabSmartPlugConfig(SmartPlugConfig):
     oh_thing_name : str = ''
     oh_switch_item_name : str = ''
     oh_power_consumption_item_name : str = ''
+    # optional. can be used to enable/disable a smartplug in terms of usage from this service. When disabled, the plug can be controlled manually.
+    oh_automation_enabled_switch_item_name : str = '' 
 
 @dataclass(frozen=True)
 class OpenHabConnectionConfig():
@@ -77,12 +80,13 @@ class ConfigParser():
             plug_cfg=data['smartplugs'][plug_uuid]
             if plug_cfg['type'] == 'tapo':
                 self._smart_plugs[plug_uuid]=TapoSmartPlugConfig(
-                plug_cfg['type'], plug_cfg['expected_consumption_in_watt'], plug_cfg['consumer_efficiency'], 
+                plug_cfg['type'], plug_cfg['enabled'], plug_cfg['expected_consumption_in_watt'], plug_cfg['consumer_efficiency'], 
                 plug_cfg['id'], plug_cfg['auth_user'], plug_cfg['auth_passwd'])
             elif plug_cfg['type'] == 'openhab':
                 self._smart_plugs[plug_uuid]=OpenHabSmartPlugConfig(
-                plug_cfg['type'], plug_cfg['expected_consumption_in_watt'], plug_cfg['consumer_efficiency'], 
-                plug_cfg['oh_thing_name'], plug_cfg['oh_switch_item_name'], plug_cfg['oh_power_consumption_item_name'])
+                plug_cfg['type'], plug_cfg['enabled'], plug_cfg['expected_consumption_in_watt'], plug_cfg['consumer_efficiency'], 
+                plug_cfg['oh_thing_name'], plug_cfg['oh_switch_item_name'], plug_cfg['oh_power_consumption_item_name'], 
+                plug_cfg['oh_automation_enabled_switch_item_name'])
             else:
                 raise ValueError(f"Unknown Plug type: {plug_cfg['type']}")
     

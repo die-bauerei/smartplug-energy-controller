@@ -2,6 +2,43 @@ log_file : "/full/path/to/your/test.log"
 log_level : 20
 eval_time_in_min : 5
 
+# NOTE: the order of the plugs define the priority (top = highest prio. bottom = lowest prio)
+smartplugs:
+  5268704d-34c2-4e38-9d3f-73c4775babca:
+    type : 'tapo'
+    enabled : True
+    expected_consumption_in_watt: 111
+    consumer_efficiency: 0.1
+    id : '192.168.110.1'
+    auth_user: 'test_user_1'
+    auth_passwd: 'test_passwd_1'
+  46742b02-aabb-47a7-9207-92b7dcea4875:
+    type : 'tapo'
+    enabled : True
+    expected_consumption_in_watt: 222
+    consumer_efficiency: 0.2
+    id : '192.168.110.2'
+    auth_user: 'test_user_2'
+    auth_passwd: 'test_passwd_2'
+  5f5f39a3-e392-48a4-aa62-0bc6959f35d2:
+    type : 'openhab'
+    enabled : True
+    expected_consumption_in_watt: 333
+    consumer_efficiency: 0.3
+    oh_thing_name : 'oh_smartplug_thing'
+    oh_switch_item_name : 'oh_smartplug_switch'
+    oh_power_consumption_item_name : 'oh_smartplug_power'
+    oh_automation_enabled_switch_item_name : 'oh_automation_enabled'
+  5def8014-c16d-41aa-a01d-c19a0801f65c:
+    type : 'openhab'
+    enabled : True
+    expected_consumption_in_watt: 444
+    consumer_efficiency: 0.4
+    oh_thing_name : 'oh_smartplug_thing_2'
+    oh_switch_item_name : 'oh_smartplug_switch_2'
+    oh_power_consumption_item_name : 'oh_smartplug_power_2'
+    oh_automation_enabled_switch_item_name : 'oh_automation_enabled_2'
+
 # This part is only needed if you want to use smartplugs of type 'openhab'
 openhab_connection:
   oh_url : 'http://localhost:8080'
@@ -10,34 +47,3 @@ openhab_connection:
   # needed if you want to push smart-meter values from openHAB 
   oh_watt_obtained_from_provider_item : 'smart_meter_overall_consumption' 
   oh_watt_produced_item : 'system_balkonkraftwerk_now'
-
-# NOTE: the order of the plugs define the priority (top = highest prio. bottom = lowest prio)
-smartplugs:
-  5268704d-34c2-4e38-9d3f-73c4775babca:
-    type : 'tapo'
-    expected_consumption_in_watt: 111
-    consumer_efficiency: 0.1
-    id : '192.168.110.1'
-    auth_user: 'test_user_1'
-    auth_passwd: 'test_passwd_1'
-  46742b02-aabb-47a7-9207-92b7dcea4875:
-    type : 'tapo'
-    expected_consumption_in_watt: 222
-    consumer_efficiency: 0.2
-    id : '192.168.110.2'
-    auth_user: 'test_user_2'
-    auth_passwd: 'test_passwd_2'
-  5f5f39a3-e392-48a4-aa62-0bc6959f35d2:
-    type : 'openhab'
-    expected_consumption_in_watt: 333
-    consumer_efficiency: 0.3
-    oh_thing_name : 'oh_smartplug_thing'
-    oh_switch_item_name : 'oh_smartplug_switch'
-    oh_power_consumption_item_name : 'oh_smartplug_power'
-  5def8014-c16d-41aa-a01d-c19a0801f65c:
-    type : 'openhab'
-    expected_consumption_in_watt: 444
-    consumer_efficiency: 0.4
-    oh_thing_name : 'oh_smartplug_thing_2'
-    oh_switch_item_name : 'oh_smartplug_switch_2'
-    oh_power_consumption_item_name : 'oh_smartplug_power_2'
