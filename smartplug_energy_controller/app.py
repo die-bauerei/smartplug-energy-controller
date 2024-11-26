@@ -75,5 +75,8 @@ async def smart_meter_put(smart_meter_values: SmartMeterValues):
 async def reset_base_load():
     await manager.reset_base_load()
 
-if __name__ == "__main__":
+def serve():
     uvicorn.run(app, host="0.0.0.0", port=settings.smartplug_energy_controller_port)
+
+if __name__ == "__main__":
+    serve()

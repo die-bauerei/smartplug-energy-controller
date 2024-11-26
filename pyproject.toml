@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "smartplug_energy_controller"
-version = "0.1.4"
+version = "0.1.5"
 description = "Turning smartplugs on/off depending on current electricity consumption"
 authors = ["Heiko Bauer <heiko_bauer@icloud.com>"]
 repository = "https://github.com/die-bauerei/smartplug-energy-controller"
@@ -9,6 +9,10 @@ packages = [
     {include = "smartplug_energy_controller"},
     {include = "oh_to_smartplug_energy_controller"}
 ]
+
+[tool.poetry.scripts]
+smartplug_energy_controller = "smartplug_energy_controller.app:serve"
+oh_to_smartplug_energy_controller = "oh_to_smartplug_energy_controller.entry_point:main"
 
 [tool.poetry.dependencies]
 python = "^3.11"
