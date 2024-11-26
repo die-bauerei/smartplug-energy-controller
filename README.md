@@ -56,7 +56,7 @@ Restart=on-failure
 RestartSec=5s
 Environment="CONFIG_PATH=full/path/to/config.yml"
 Environment="SMARTPLUG_ENERGY_CONTROLLER_PORT=8000"
-ExecStart=/usr/bin/bash -lc "source /home/ubuntu/smart_meter_py_env/bin/activate && uvicorn --host 0.0.0.0 --port $SMARTPLUG_ENERGY_CONTROLLER_PORT smartplug_energy_controller.app:app > /dev/null"
+ExecStart=/usr/bin/bash -lc "/home/ubuntu/smart_meter_py_env/bin/smartplug_energy_controller"
 
 [Install]
 WantedBy=multi-user.target
@@ -92,11 +92,7 @@ A possible setup could include:
 - Let openHAB send the requests to this service. 
 
 This project includes a service that performs this requests by using HABApp (https://github.com/spacemanspiff2007/HABApp)
-You can start habapp by e.g.
-```bash
-HABAPP_CONFIG_FOLDER=$(source /home/ubuntu/smart_meter_py_env/bin/activate && pip show smartplug_energy_controller | grep Location | sed "s/Location: //")/oh_to_smartplug_energy_controller
-source /home/ubuntu/smart_meter_py_env/bin/activate && habapp --config $HABAPP_CONFIG_FOLDER
-```
+
 NOTE: Make sure to first start smartplug_energy_controller as this will setup the configuration for HABApp. 
 
 *The service expects the smartplug_energy_controller API on http://localhost:$SMARTPLUG_ENERGY_CONTROLLER_PORT*
@@ -117,7 +113,7 @@ Restart=on-failure
 RestartSec=5s
 #Provide environment variable (e.g. in your ~/.profile). Assignment example see above
 Environment="SMARTPLUG_ENERGY_CONTROLLER_PORT=8000"
-ExecStart=/usr/bin/bash -lc "source /home/ubuntu/smart_meter_py_env/bin/activate && habapp -c $HABAPP_CONFIG_FOLDER"
+ExecStart=/usr/bin/bash -lc "source /home/heiko/smart_meter_py_env/bin/activate && /home/ubuntu/smart_meter_py_env/bin/oh_to_smartplug_energy_controller"
 
 [Install]
 WantedBy=multi-user.target
@@ -129,4 +125,14 @@ Have a look at the example config at https://github.com/die-bauerei/smartplug-en
 ## Troubleshooting ##
 
 - Have a look at the log-file you have given in your config.yml
-- Have a look at the HABApp log-file located in $HABAPP_CONFIG_FOLDER/log/HABApp.log
+- Have a look at the HABApp log-file located in smart_meter_py_env/lib/python3.xx/site-packages/oh_to_smartplug_energy_controller/log/HABApp.log. 
+
+## Development ##
+Development is done in wsl2 on ubuntu 22.04.
+Setting up the development environment on Windows is not supported. But in principal it could be setup as well since no OS specific functionalities are used.
+
+### Setup ###
+The project is using [poetry](https://python-poetry.org/) for managing packaging and resolve dependencies.
+To install poetry call *install-poetry.sh*. This will install poetry itself as well as python and the required packages as a virtual environment in *.venv*.
+Example settings for development in VS Code are provided in *vscode-settings*. (Copy them to *.vscode* folder)
+Follow these [instructions](https://docs.pydantic.dev/latest/integrations/visual_studio_code/) to enable proper linting and type checking. 
