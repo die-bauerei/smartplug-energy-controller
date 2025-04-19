@@ -20,7 +20,7 @@ class TestConfig(unittest.TestCase):
 
     def test_creation(self) -> None:
         parser=ConfigParser(config_file, habapp_config_path)
-        self.assertEqual(parser.general, GeneralConfig(Path('/full/path/to/your/test.log'), 20, 5))
+        self.assertEqual(parser.general, GeneralConfig(Path('/full/path/to/your/test.log'), 20, 5, 250))
         self.assertEqual(parser.plug_uuids, ['5268704d-34c2-4e38-9d3f-73c4775babca', 
                                              '46742b02-aabb-47a7-9207-92b7dcea4875',
                                              '5f5f39a3-e392-48a4-aa62-0bc6959f35d2',

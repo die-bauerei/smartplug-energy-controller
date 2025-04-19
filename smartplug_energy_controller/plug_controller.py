@@ -11,16 +11,18 @@ from plugp100.new.tapoplug import TapoPlug
 from smartplug_energy_controller.config import *
 from smartplug_energy_controller import get_oh_connection
 
+import aiohttp
 import asyncio
 
 class PlugController(ABC):
     def __init__(self, logger : Logger, plug_cfg : SmartPlugConfig) -> None:
         self._logger=logger
-        assert plug_cfg.expected_consumption_in_watt >= 1
-        assert plug_cfg.consumer_efficiency > 0 and plug_cfg.consumer_efficiency < 1
-        self._watt_consumed_at_plug : float = plug_cfg.expected_consumption_in_watt
-        self._consumer_efficiency=plug_cfg.consumer_efficiency
-        self._enabled=plug_cfg.enabled
+        self._plug_cfg=plug_cfg
+        assert self._plug_cfg.expected_consumption_in_watt >= 1
+        assert self._plug_cfg.consumer_efficiency > 0 and self._plug_cfg.consumer_efficiency < 1
+        self._watt_consumed_at_plug : float = self._plug_cfg.expected_consumption_in_watt
+        self._consumer_efficiency=self._plug_cfg.consumer_efficiency
+        self._enabled=self._plug_cfg.enabled # TODO: use/change "enabled" variable from cfg (-> make SmartPlugConfig not frozen)
         self._propose_to_turn_on=False
         self._lock : asyncio.Lock = asyncio.Lock()
 
@@ -38,6 +40,10 @@ class PlugController(ABC):
     def enabled(self) -> bool:
         return self._enabled
     
+    @property
+    def cfg(self) -> SmartPlugConfig:
+        return self._plug_cfg
+
     async def set_enabled(self, enabled : bool) -> None:
         async with self._lock:
             self._enabled = enabled
@@ -111,7 +117,8 @@ class TapoPlugController(PlugController):
                 host=self._cfg.id,
                 credentials=credentials
             )
-            self._plug = await connect(device_configuration) # type: ignore
+            async with aiohttp.ClientSession() as session:
+                self._plug = await connect(device_configuration, session) # type: ignore
         await self._plug.update() # type: ignore
 
     async def is_on(self) -> bool:

@@ -41,10 +41,9 @@ class GeneralConfig():
     log_file : Union[None, Path] = None
     log_level : int = 20
     # Time in minutes for which the energy consumption should be evaluated
-    # Rule of thumb:
-    # Use high value (~10) in case you do NOT propagate the produced watt.
-    # Use low value (~2) in case you do propagate the produced watt.
     eval_time_in_min : int = 5
+    # initial value for the base load. Will be recalculated during the night
+    default_base_load_in_watt : int = 250
 
 class ConfigParser():
     def __init__(self, file : Path, habapp_config : Path) -> None:
@@ -75,7 +74,7 @@ class ConfigParser():
         return self._smart_plugs[plug_uuid]
 
     def _read_from_dict(self, data : dict):
-        self._general=GeneralConfig(Path(data['log_file']), data['log_level'], data['eval_time_in_min'])
+        self._general=GeneralConfig(Path(data['log_file']), data['log_level'], data['eval_time_in_min'], data['default_base_load_in_watt'])
         for plug_uuid in data['smartplugs']:
             plug_cfg=data['smartplugs'][plug_uuid]
             if plug_cfg['type'] == 'tapo':
