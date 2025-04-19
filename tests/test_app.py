@@ -75,7 +75,7 @@ class TestAppBasic(unittest.TestCase):
     def test_root(self, *mocks) -> None:
         response = _client.get("/")
         assert response.status_code == 200
-        assert response.json() == {"message": "Hallo from smartplug-energy-controller"}
+        assert "Hallo from smartplug-energy-controller" in response.json()["message"]
 
     def test_plug_info(self, *mocks) -> None:
         response = _client.get("/plug-info/5268704d-34c2-4e38-9d3f-73c4775babca")
@@ -184,9 +184,9 @@ class TestAppAdvanced(unittest.TestCase):
     def test_smart_meter(self, *mocks) -> None:
         response = _client.get("/smart-meter")
         assert response.status_code == 200
-        assert response.json()['base_load'] == sys.float_info.max
-        assert response.json()['min_expected_freq_in_sec'] == 90.0
-        assert response.json()['latest_mean'] == sys.float_info.max
+        self.assertEqual(response.json()['base_load'], 250)
+        self.assertEqual(response.json()['min_expected_freq_in_sec'], 90.0)
+        self.assertEqual(response.json()['latest_mean'], sys.float_info.max)
         assert 'watt_produced' not in response.json()
         assert 'break_even' not in response.json()
 
@@ -198,7 +198,7 @@ class TestAppAdvanced(unittest.TestCase):
         now = datetime.now()
         # Turn off all four plugs
         for i in range(4):
-            response = _client.put("/smart-meter", json={'watt_obtained_from_provider': 200, 'timestamp': (now + timedelta(minutes=i)).isoformat()})
+            response = _client.put("/smart-meter", json={'watt_obtained_from_provider': 300, 'timestamp': (now + timedelta(minutes=i)).isoformat()})
             assert response.status_code == 200
         # A plug should be turned on when no energy was obtained for at least 5 min
         for i in range(4, 12):

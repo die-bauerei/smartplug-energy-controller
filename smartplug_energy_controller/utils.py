@@ -72,13 +72,22 @@ class RollingValues:
         window_time = self._values[-1].timestamp - self._values[0].timestamp
         return Ratio(threshold_value, less_threshold_time/window_time)
     
-    def mean(self) -> float:
-        assert len(self._values) > 1, "Not enough values to calculate mean"
-        # TODO: rm outliers?
-        weighted_sum : float = 0
+    def _calc_weighted_values(self) -> List[float]:
+        assert len(self._values) > 1, "Not enough values to calculate weighted values"
+        weighted_values : List[float] = []
+        total_time_range = (self._values[-1].timestamp - self._values[0].timestamp).total_seconds()
         for index in range(1, len(self._values)):
-            weighted_sum+=self._values[index].value*(self._values[index].timestamp - self._values[index-1].timestamp).total_seconds()
-        return weighted_sum/(self._values[-1].timestamp - self._values[0].timestamp).total_seconds()
+            relative_value = self._values[index].value*(self._values[index].timestamp - self._values[index-1].timestamp).total_seconds()
+            weighted_values.append(relative_value/total_time_range)
+        return weighted_values
+
+    def mean(self) -> float:
+        return sum(self._calc_weighted_values())
+    
+    def median(self) -> float:
+        weighted_values = self._calc_weighted_values()
+        median_index = weighted_values.index(sorted(weighted_values)[len(weighted_values)//2]) # use floor division operator
+        return self._values[median_index+1].value
 
 class OpenhabConnectionProtocol(Protocol):
     async def post_to_item(self, oh_item_name : str, value : Any) -> bool: ...
@@ -87,16 +96,22 @@ class OpenhabConnection():
     def __init__(self, oh_con_cfg : OpenHabConnectionConfig, logger : Logger) -> None:
         self._oh_url=oh_con_cfg.oh_url
         self._logger=logger
-        auth=aiohttp.BasicAuth(oh_con_cfg.oh_user, oh_con_cfg.oh_password) if oh_con_cfg.oh_user != '' else None
-        self._session=aiohttp.ClientSession(auth=auth, headers={'Content-Type': 'text/plain'})
+        self._auth=aiohttp.BasicAuth(oh_con_cfg.oh_user, oh_con_cfg.oh_password) if oh_con_cfg.oh_user != '' else None
 
     async def post_to_item(self, oh_item_name : str, value : Any) -> bool:
         try:
-            async with self._session.post(url=f"{self._oh_url}/rest/items/{oh_item_name}", data=str(value), ssl=False) as response:
-                if response.status != 200:
-                    self._logger.warning(f"Failed to post value to openhab item {oh_item_name}. Return code: {response.status}. text: {await response.text()})")
-                    return False
+            async with aiohttp.ClientSession(auth=self._auth, headers={'Content-Type': 'text/plain'}) as session:
+                async with session.post(url=f"{self._oh_url}/rest/items/{oh_item_name}", data=str(value), ssl=False) as response:
+                    if response.status != 200:
+                        self._logger.warning(f"Failed to post value to openhab item {oh_item_name}. Return code: {response.status}. text: {await response.text()})")
+                        return False
         except aiohttp.ClientError as e:
             self._logger.warning("Caught Exception while posting to openHAB: " + str(e))
+            return False
+        except Exception as e:
+            self._logger.exception("Caught Exception: " + str(e))
+            return False
+        except:
+            self._logger.exception("Caught unknow exception")
             return False
         return True

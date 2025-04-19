@@ -4,7 +4,9 @@ from pathlib import Path
 root_path = str( Path(__file__).parent.absolute() )
 
 from fastapi import FastAPI, Request, HTTPException
-from fastapi_utils.tasks import repeat_every
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.interval import IntervalTrigger
+from contextlib import asynccontextmanager
 from typing import Union, cast
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
@@ -25,6 +27,20 @@ init(cfg_parser)
 manager=PlugManager.create(get_logger(), cfg_parser)
 app = FastAPI()
 
+async def set_base_load():
+    await manager.set_base_load()
+# Set up the scheduler
+scheduler = BackgroundScheduler()
+trigger = IntervalTrigger(hours=1)
+scheduler.add_job(set_base_load, trigger)
+scheduler.start()
+
+# Ensure the scheduler shuts down properly on application exit.
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    scheduler.shutdown()
+
 class PlugValues(BaseModel):
     watt_consumed_at_plug: float
     online: bool
@@ -37,7 +53,7 @@ class SmartMeterValues(BaseModel):
 
 @app.get("/")
 async def root(request: Request):
-    return {"message": "Hallo from smartplug-energy-controller"}
+    return {"message": f"Hallo from smartplug-energy-controller. It is {datetime.now()}"}
 
 @app.get("/plug-info/{uuid}")
 async def plug_info(uuid: str):
@@ -69,11 +85,6 @@ async def smart_meter_get():
 @app.put("/smart-meter")
 async def smart_meter_put(smart_meter_values: SmartMeterValues):
     await manager.add_smart_meter_values(smart_meter_values.watt_obtained_from_provider, smart_meter_values.watt_produced, smart_meter_values.timestamp)
-
-@app.on_event("startup")
-@repeat_every(seconds=60*30)
-async def reset_base_load():
-    await manager.reset_base_load()
 
 def serve():
     uvicorn.run(app, host="0.0.0.0", port=settings.smartplug_energy_controller_port)

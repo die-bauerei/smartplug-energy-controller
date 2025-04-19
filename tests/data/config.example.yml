@@ -1,6 +1,7 @@
 log_file : "/full/path/to/your/test.log"
 log_level : 20
 eval_time_in_min : 5
+default_base_load_in_watt : 250
 
 # NOTE: the order of the plugs define the priority (top = highest prio. bottom = lowest prio)
 smartplugs:

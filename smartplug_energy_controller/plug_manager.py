@@ -10,15 +10,16 @@ from smartplug_energy_controller.config import *
 from smartplug_energy_controller.plug_controller import *
 
 class PlugManager():
-    _efficiency_tolerance=0.05
+    _efficiency_tolerance=0.075
 
-    def __init__(self, logger : Logger, eval_time_in_min : int, min_expected_freq : timedelta = timedelta(seconds=90)) -> None:
+    def __init__(self, logger : Logger, eval_time_in_min : int, default_base_load_in_watt : int, 
+                 min_expected_freq : timedelta = timedelta(seconds=90)) -> None:
         self._logger=logger
         # Add a dummy value to the rolling watt-obtained values to assure valid state at the beginning
         self._watt_obtained_values=RollingValues(timedelta(minutes=eval_time_in_min),
                                                  [ValueEntry(sys.float_info.max, datetime.now())])
-        self._base_load=sys.float_info.max
-        self._min_expected_freq=min_expected_freq
+        self._base_load : float = default_base_load_in_watt
+        self._min_expected_freq = min_expected_freq
         self._watt_produced : Union[None, float] = None
         self._break_even : Union[None, float] = None
         self._latest_mean = sys.float_info.max
@@ -39,9 +40,10 @@ class PlugManager():
             state['latest_mean'] = self._latest_mean
         return state
     
-    async def reset_base_load(self) -> None:
+    async def set_base_load(self) -> None:
         async with self._lock:
-             self._base_load=sys.float_info.max
+            if self._watt_obtained_values.value_count() > 1:
+                self._base_load = min(self._base_load, self._watt_obtained_values.mean())
 
     def _add_plug_controller(self, uuid : str, controller : PlugController) -> None:
         self._controllers[uuid]=controller
@@ -61,7 +63,9 @@ class PlugManager():
                     turn_on = True
                     if self._watt_produced is not None and self._break_even is not None:
                         efficiency_factor=max(0.0, controller.consumer_efficiency - PlugManager._efficiency_tolerance)
-                        turn_on = (self._watt_produced - self._break_even) > controller.watt_consumed*(1 - efficiency_factor)
+                        # NOTE: expect the plug to consume at least the expected consumption to avoid "flickering" of the plug
+                        expected_watt_consumption = max(controller.watt_consumed, controller.cfg.expected_consumption_in_watt)
+                        turn_on = (self._watt_produced - self._break_even) > expected_watt_consumption*(1 - efficiency_factor)
                     if turn_on:
                         # if turning on fails due to connection issues -> continue with next plug
                         # Usually the plug should not be online in this case, but having this additional check makes it more robust.   
@@ -104,8 +108,7 @@ class PlugManager():
         if self._watt_obtained_values[-1].timestamp - self._watt_obtained_values[-2].timestamp > self._min_expected_freq:
             self._logger.warning(f"Values are not added frequently enough. The minimum frequency is {self._min_expected_freq}. Some features might not work as intended.")
         had_overprotection = self._having_overproduction
-        self._latest_mean = self._watt_obtained_values.mean()
-        self._base_load = min(self._base_load, self._latest_mean + (watt_produced if watt_produced is not None else 0))
+        self._latest_mean = self._watt_obtained_values.median()
         self._having_overproduction = self._latest_mean < 1
         old_break_even = self._break_even
         if not had_overprotection and self._having_overproduction:
@@ -118,7 +121,7 @@ class PlugManager():
             self._logger.info(f"Break-even value has been updated from {old_break_even} to {self._break_even}")
         elif had_overprotection and self._having_overproduction and self._break_even is not None:
             # decrease break-even value when overproduction is still present
-            self._break_even = max(self._base_load, self._break_even*0.975)
+            self._break_even = self._base_load + 0.975*max(self._break_even - self._base_load, 0.0)
             if old_break_even != self._break_even:
                 self._logger.info(f"Break-even value has been updated from {old_break_even} to {self._break_even}")
         self._watt_produced=watt_produced
@@ -133,7 +136,7 @@ class PlugManager():
 
     @staticmethod
     def create(logger : Logger, cfg_parser : ConfigParser) -> PlugManager:
-        manager=PlugManager(logger, cfg_parser.general.eval_time_in_min)
+        manager=PlugManager(logger, cfg_parser.general.eval_time_in_min, cfg_parser.general.default_base_load_in_watt)
         for uuid in cfg_parser.plug_uuids:
             plug_cfg = cfg_parser.plug(uuid)
             plug_controller : Union[OpenHabPlugController, TapoPlugController, None]=None
