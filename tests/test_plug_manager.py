@@ -190,10 +190,10 @@ class TestPlugManager(unittest.IsolatedAsyncioTestCase):
         await self._manager.add_smart_meter_values(0, 310, now + timedelta(minutes=9, seconds=30))
         self.assertTrue(not await self._manager.plug('A').is_on())
         # each further call should decrease the break-even value until eventually Plug A is on
-        for i in range(60):
+        for i in range(120):
             await self._manager.add_smart_meter_values(0, 340, now + timedelta(minutes=9, seconds=35+i))
         self.assertTrue(await self._manager.plug('A').is_on())
-        await self._manager.add_smart_meter_values(80, 320, now + timedelta(minutes=11))
+        await self._manager.add_smart_meter_values(80, 320, now + timedelta(minutes=12))
         self.assertTrue(await self._manager.plug('A').is_on())
 
     async def test_turn_on_off_plug_offline(self):

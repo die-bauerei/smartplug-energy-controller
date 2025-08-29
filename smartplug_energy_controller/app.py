@@ -5,7 +5,7 @@ root_path = str( Path(__file__).parent.absolute() )
 
 from fastapi import FastAPI, Request, HTTPException
 from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.cron import CronTrigger
 from contextlib import asynccontextmanager
 from typing import Union, cast
 from pydantic import BaseModel
@@ -31,8 +31,9 @@ async def set_base_load():
     await manager.set_base_load()
 # Set up the scheduler
 scheduler = BackgroundScheduler()
-trigger = IntervalTrigger(hours=1)
-scheduler.add_job(set_base_load, trigger)
+for h in [2,3,4]:
+    trigger = CronTrigger(hour=h, minute=0)
+    scheduler.add_job(set_base_load, trigger)
 scheduler.start()
 
 # Ensure the scheduler shuts down properly on application exit.
