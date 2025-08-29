@@ -87,7 +87,7 @@ class PlugManager():
             try:
                 if controller.enabled and await controller.is_online() and await controller.is_on():
                     efficiency_factor=min(1.0, controller.consumer_efficiency + PlugManager._efficiency_tolerance)
-                    if self._latest_mean > controller.watt_consumed*efficiency_factor:
+                    if self._latest_mean >= controller.watt_consumed*efficiency_factor:
                         # if turning off fails due to connection issues -> continue with next plug
                         # Usually the plug should not be online in this case, but having this additional check makes it more robust.   
                         if not await controller.turn_off():
@@ -121,7 +121,7 @@ class PlugManager():
             self._logger.info(f"Break-even value has been updated from {old_break_even} to {self._break_even}")
         elif had_overprotection and self._having_overproduction and self._break_even is not None:
             # decrease break-even value when overproduction is still present
-            self._break_even = self._base_load + 0.975*max(self._break_even - self._base_load, 0.0)
+            self._break_even = self._base_load + 0.99*max(self._break_even - self._base_load, 0.0)
             if old_break_even != self._break_even:
                 self._logger.info(f"Break-even value has been updated from {old_break_even} to {self._break_even}")
         self._watt_produced=watt_produced
